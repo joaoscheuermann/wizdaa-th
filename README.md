@@ -1,36 +1,174 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ExampleHR Time-Off
 
-## Getting Started
+Next.js App Router prototype for the ExampleHR time-off take-home. The app uses
+mock HCM route handlers for balances, employee requests, manager decisions, and
+reviewer-controlled state scenarios.
 
-First, run the development server:
+## Setup
+
+```bash
+npm install
+```
+
+If Playwright browsers are not already installed on the machine:
+
+```bash
+npx playwright install chromium
+```
+
+## Run the App
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open a seeded route directly:
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+- [http://localhost:3000/emp-avery](http://localhost:3000/emp-avery) opens
+  Avery Stone's employee workspace.
+- [http://localhost:3000/emp-jordan](http://localhost:3000/emp-jordan) opens
+  Jordan Lee's employee workspace with a seeded Austin pending request.
+- [http://localhost:3000/mgr-morgan](http://localhost:3000/mgr-morgan) opens
+  Morgan Patel's manager workspace plus Morgan's own self-service PTO table.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The root path redirects to `/emp-avery`. Unknown IDs, such as
+`/not-a-seeded-user`, show a clear invalid-user state and list the valid seeded
+paths instead of falling back to another employee.
 
-## Learn More
+The employee workspace loads route-scoped PTO balances, opens request creation
+from the `Request PTO` icon button in the requested PTO table header, and
+reconciles HCM changes. The manager workspace reviews pending requests in the
+right column, opens the decision modal from a pending request, and verifies
+balances before approval or denial.
 
-To learn more about Next.js, take a look at the following resources:
+Recommended smoke workflow after `npm run dev`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Reset state with `curl -X DELETE http://localhost:3000/api/hcm/state`.
+2. Open `/emp-avery`, click `Request PTO`, submit the default one-day New York
+   request, and confirm the requested PTO table shows the new pending row.
+3. Open `/mgr-morgan`, click `Review Avery Stone New York HQ`, approve in the
+   decision modal, and use `Confirm approval` if HCM asks for reconfirmation.
+4. Return to `/emp-avery` and confirm the requested PTO table shows the request
+   as approved.
+5. Open `/emp-jordan` to confirm Jordan's scoped data, then open an invalid path
+   to confirm the invalid-user state.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Storybook
 
-## Deploy on Vercel
+```bash
+npm run storybook
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Open [http://localhost:6006](http://localhost:6006). Stories use fixture-backed
+`fetch` responses and do not mutate the live Next.js route-handler state.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Build Storybook:
+
+```bash
+npm run build-storybook
+```
+
+Run Storybook interaction tests:
+
+```bash
+npm run test:storybook
+```
+
+## Verification Commands
+
+```bash
+npm run typecheck
+npm run lint
+npm run test
+npm run test:storybook
+npm run test:e2e
+npm run build
+```
+
+Coverage can be generated without enforcing an arbitrary gate:
+
+```bash
+npm run test:coverage
+```
+
+Use the terminal summary for statement, branch, function, and line coverage, and
+open `coverage/index.html` for file-level gaps when preparing a reviewer report.
+
+## Mock HCM State API
+
+The mock HCM state is held in memory and seeded from
+`src/server/hcm/seed/default-state.json`. Restarting the dev server or calling
+`DELETE /api/hcm/state` resets it to the default seed.
+
+Inspect the current state:
+
+```bash
+curl http://localhost:3000/api/hcm/state
+```
+
+Reset to the default seed:
+
+```bash
+curl -X DELETE http://localhost:3000/api/hcm/state
+```
+
+Replace the full state from a local JSON file:
+
+```bash
+curl -X POST http://localhost:3000/api/hcm/state \
+  -H "Content-Type: application/json" \
+  --data-binary @src/server/hcm/seed/default-state.json
+```
+
+Patch a deterministic scenario mode:
+
+```bash
+curl -X PATCH http://localhost:3000/api/hcm/state \
+  -H "Content-Type: application/json" \
+  -d "{\"scenario\":{\"mode\":\"silent_no_response\",\"updatedAt\":\"2026-04-28T13:10:00.000Z\"}}"
+```
+
+Supported scenario modes are `normal`, `slow_read`, `slow_write`,
+`insufficient_balance`, `invalid_dimension`, `silent_wrong_success`,
+`silent_no_response`, `conflict_on_submit`, `conflict_on_approval`, and
+`anniversary_bonus_mid_session`.
+
+Return to the happy path:
+
+```bash
+curl -X PATCH http://localhost:3000/api/hcm/state \
+  -H "Content-Type: application/json" \
+  -d "{\"scenario\":{\"mode\":\"normal\",\"updatedAt\":\"2026-04-28T13:20:00.000Z\"}}"
+```
+
+Patch Avery's New York balance to simulate an anniversary bonus while the app is
+open:
+
+```bash
+curl -X PATCH http://localhost:3000/api/hcm/state \
+  -H "Content-Type: application/json" \
+  -d "{\"balances\":[{\"employeeId\":\"emp-avery\",\"locationId\":\"loc-nyc\",\"timeOffTypeId\":\"pto\",\"availableDays\":29}],\"scenario\":{\"mode\":\"anniversary_bonus_mid_session\",\"updatedAt\":\"2026-04-28T13:05:00.000Z\"}}"
+```
+
+The employee balance view reconciles the changed HCM balance on the next visible
+batch refresh or after a targeted per-cell refresh.
+
+Read the batch balance corpus:
+
+```bash
+curl http://localhost:3000/api/hcm/balances/batch
+```
+
+Read one authoritative employee/location balance cell:
+
+```bash
+curl "http://localhost:3000/api/hcm/balances?employeeId=emp-jordan&locationId=loc-nyc"
+```
+
+Patch one authoritative employee/location balance cell:
+
+```bash
+curl -X PATCH http://localhost:3000/api/hcm/balances \
+  -H "Content-Type: application/json" \
+  -d "{\"employeeId\":\"emp-jordan\",\"locationId\":\"loc-nyc\",\"availableDays\":6.5,\"pendingDays\":1}"
+```

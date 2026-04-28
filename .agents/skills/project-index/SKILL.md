@@ -1,192 +1,237 @@
 ---
 name: project-index
-description: Spectacular repository map and file index. Use when Codex needs quick context about this repo, its Nx/Cargo workspace layout, local agent skills, Rust crates, GPUI app structure, config/theme files, or source-controlled files before planning, coding, reviewing, or debugging.
+description: Spectacular repository map and file index. Use when Codex needs quick context about this repo, its layout, files, local agent skills, planning notes, coding, reviewing, or debugging.
 ---
 
 # Project Index
 
 Last updated: 2026-04-28
 
-This skill gives agents a compact map of the current Spectacular repository. It indexes source-controlled and unignored project files, with generated/dependency folders omitted so startup context stays useful.
+This skill gives agents a compact map of the current Spectacular repository checkout. It indexes source-controlled and unignored project files for the ExampleHR time-off Next.js prototype, while keeping generated and dependency folders out of startup context.
 
 Omitted intentionally:
 
 - `.git/` - Git object database and local repository metadata.
-- `.nx/cache/`, `.nx/workspace-data/`, `dist/`, `tmp/`, `out-tsc/`, `coverage/` - generated task outputs and caches.
+- `.next/`, `dist/`, `tmp/`, `out-tsc/`, `coverage/`, `playwright-report/`, `storybook-static/` - generated task outputs, reports, and caches.
+- `.nx/cache/`, `.nx/workspace-data/` - generated Nx cache paths if this checkout later reintroduces Nx.
 - `node_modules/` - installed npm dependencies.
-- `.journal/` - ignored local planning and delivery history; read it only when a task explicitly asks for journal context.
+- Ignored local-only journal files under `.journal/` should remain omitted. The journal files listed below are source-controlled/unignored in this checkout.
 
 ## Repository Summary
 
-Spectacular is an Nx workspace backed by a Rust Cargo workspace. It currently contains a GPUI desktop application (`spectacular`) plus supporting Rust crates for agent orchestration, provider abstractions, config persistence, and a placeholder planning route. The repo also contains `.agents/skills` playbooks that steer coding, Nx, debugging, CI, and journal workflows.
+This checkout is a Next.js 16 App Router prototype for ExampleHR time-off workflows. The app has employee balance/request screens, manager approval screens, in-memory mock HCM route handlers, deterministic scenario controls, Storybook coverage, Vitest unit/component tests, and Playwright end-to-end tests. Local `.agents/skills` files define the agent workflows used for planning, implementation, verification, Nx-oriented tasks, CI monitoring, and this repository index.
 
 ## Tree
 
 ```text
 .
-|-- .agents/ - Agent-facing repository context and reusable skill instructions.
-|   `-- skills/ - Local skill playbooks used by coding agents.
+|-- .agents/ - Local agent skills and UI metadata.
+|   `-- skills/ - Workflow playbooks for specialized agent behavior.
 |       |-- architect/
-|       |   `-- SKILL.md - Planning-only architecture workflow for Nx monorepo changes.
+|       |   `-- SKILL.md - Architecture planning workflow for larger changes.
 |       |-- coding-conventions/
-|       |   |-- SKILL.md - Shared implementation conventions and references.
+|       |   |-- SKILL.md - Shared coding principles and implementation conventions.
 |       |   `-- references/
-|       |       |-- dependency-injection.md - Dependency injection guidance and examples.
-|       |       |-- dip.md - Dependency Inversion Principle guidance.
-|       |       |-- dry.md - DRY principle guidance.
-|       |       |-- early-returns.md - Early return and control-flow style guidance.
-|       |       |-- functional-programming.md - Functional style guidance for implementation work.
-|       |       |-- isp.md - Interface Segregation Principle guidance.
-|       |       |-- kiss.md - KISS principle guidance.
-|       |       |-- monodon-rust.md - Rust project guidance for `@monodon/rust` in Nx.
-|       |       |-- nxlv-python.md - Python project guidance for `@nxlv/python` in Nx.
-|       |       |-- ocp.md - Open/Closed Principle guidance.
-|       |       `-- srp.md - Single Responsibility Principle guidance.
+|       |       |-- dependency-injection.md - Dependency injection guidance.
+|       |       |-- dip.md - Dependency Inversion Principle reference.
+|       |       |-- dry.md - DRY principle reference.
+|       |       |-- early-returns.md - Early-return control flow guidance.
+|       |       |-- functional-programming.md - Functional programming guidance.
+|       |       |-- isp.md - Interface Segregation Principle reference.
+|       |       |-- kiss.md - KISS principle reference.
+|       |       |-- monodon-rust.md - Rust/Nx generator notes for applicable workspaces.
+|       |       |-- nxlv-python.md - Python/Nx generator notes for applicable workspaces.
+|       |       |-- ocp.md - Open/Closed Principle reference.
+|       |       `-- srp.md - Single Responsibility Principle reference.
 |       |-- debug-coordinator/
-|       |   `-- SKILL.md - Coordinates journal-backed debugging from triage to verification.
+|       |   `-- SKILL.md - Journal-backed debugging coordination workflow.
 |       |-- debugger/
 |       |   `-- SKILL.md - Hypothesis-driven bug investigation workflow.
 |       |-- decomposer/
-|       |   `-- SKILL.md - Breaks approved architecture into ordered effort files.
+|       |   `-- SKILL.md - Converts approved architecture into ordered efforts.
 |       |-- developer/
-|       |   `-- SKILL.md - Implements approved efforts while following repo conventions.
+|       |   `-- SKILL.md - Implements an approved journal effort.
 |       |-- effort-executor/
-|       |   `-- SKILL.md - Orchestrates effort execution and status lifecycle.
+|       |   `-- SKILL.md - Orchestrates sequential effort execution.
 |       |-- generate-project-index/
-|       |   |-- SKILL.md - Workflow and reusable prompt for regenerating this repository index skill.
+|       |   |-- SKILL.md - Workflow for regenerating this index.
 |       |   `-- agents/
-|       |       `-- openai.yaml - UI metadata for the project-index generator skill.
+|       |       `-- openai.yaml - UI metadata for the index generator skill.
 |       |-- journal-manager/
-|       |   `-- SKILL.md - File protocol for creating and updating `.journal` entries.
+|       |   `-- SKILL.md - Protocol for reading and updating `.journal` entries.
 |       |-- link-workspace-packages/
-|       |   `-- SKILL.md - Adds workspace package dependencies through package-manager commands.
+|       |   `-- SKILL.md - Workspace package linking workflow.
 |       |-- monitor-ci/
-|       |   |-- SKILL.md - Watches Nx Cloud CI and coordinates self-healing fixes.
+|       |   |-- SKILL.md - Nx Cloud CI monitoring and self-healing workflow.
 |       |   |-- references/
-|       |   |   `-- fix-flows.md - CI failure remediation flow reference.
+|       |   |   `-- fix-flows.md - CI remediation reference flows.
 |       |   `-- scripts/
-|       |       |-- ci-poll-decide.mjs - Polls CI state and decides the next monitoring action.
+|       |       |-- ci-poll-decide.mjs - Polls CI state and decides next actions.
 |       |       `-- ci-state-update.mjs - Updates persisted CI monitoring state.
 |       |-- nx-generate/
-|       |   `-- SKILL.md - Nx generator workflow for scaffolding apps, libs, and structure.
+|       |   `-- SKILL.md - Nx generator workflow for scaffolding projects.
 |       |-- nx-import/
 |       |   |-- SKILL.md - Nx repository import workflow.
 |       |   `-- references/
-|       |       |-- ESLINT.md - Import notes for ESLint-based repositories.
-|       |       |-- GRADLE.md - Import notes for Gradle-based repositories.
-|       |       |-- JEST.md - Import notes for Jest-based repositories.
-|       |       |-- NEXT.md - Import notes for Next.js repositories.
-|       |       |-- TURBOREPO.md - Import notes for Turborepo migrations.
-|       |       `-- VITE.md - Import notes for Vite repositories.
+|       |       |-- ESLINT.md - ESLint import notes.
+|       |       |-- GRADLE.md - Gradle import notes.
+|       |       |-- JEST.md - Jest import notes.
+|       |       |-- NEXT.md - Next.js import notes.
+|       |       |-- TURBOREPO.md - Turborepo import notes.
+|       |       `-- VITE.md - Vite import notes.
 |       |-- nx-plugins/
-|       |   `-- SKILL.md - Discovers and installs Nx plugins.
+|       |   `-- SKILL.md - Nx plugin discovery and installation workflow.
 |       |-- nx-run-tasks/
-|       |   `-- SKILL.md - Runs Nx build, test, lint, serve, affected, and run-many tasks.
+|       |   `-- SKILL.md - Nx target execution workflow.
 |       |-- nx-workspace/
-|       |   |-- SKILL.md - Read-only Nx workspace exploration and task discovery.
+|       |   |-- SKILL.md - Nx workspace exploration workflow.
 |       |   `-- references/
-|       |       `-- AFFECTED.md - Guidance for Nx affected commands.
+|       |       `-- AFFECTED.md - Nx affected-command guidance.
 |       |-- project-index/
-|       |   |-- SKILL.md - This repository map for quick agent startup context.
+|       |   |-- SKILL.md - This repository map for quick context.
 |       |   `-- agents/
-|       |       `-- openai.yaml - UI metadata for this project-index skill.
+|       |       `-- openai.yaml - UI metadata for this skill.
 |       |-- spec/
-|       |   `-- SKILL.md - Requirements elicitation, stories, acceptance criteria, and edge cases.
+|       |   `-- SKILL.md - Requirements, user stories, and acceptance criteria workflow.
 |       `-- tester/
-|           `-- SKILL.md - Verification workflow for efforts and bug fixes.
-|-- .cargo/
-|   `-- config.toml - Cargo configuration for the workspace.
-|-- .github/
-|   `-- workflows/
-|       `-- ci.yml - GitHub Actions workflow for Nx CI, install, format, lint, test, build, and fix-ci.
-|-- .vscode/
-|   `-- extensions.json - Recommended VS Code extensions for the workspace.
-|-- packages/
-|   |-- .gitkeep - Keeps the packages directory present when empty.
-|   |-- spectacular/ - GPUI desktop application crate.
-|   |   |-- Cargo.toml - Application crate manifest with GPUI, config, agent, and LLM dependencies.
-|   |   |-- project.json - Nx project definition for build, test, lint, and run targets.
-|   |   |-- assets/
-|   |   |   |-- fonts/
-|   |   |   |   `-- UbuntoSansMono/
-|   |   |   |       |-- UbuntuSansMono-Italic-VariableFont_wght.ttf - Bundled italic monospace font asset.
-|   |   |   |       `-- UbuntuSansMono-VariableFont_wght.ttf - Bundled regular monospace font asset.
-|   |   |   |-- footer/
-|   |   |   |   |-- branch.svg - Footer branch-status icon.
-|   |   |   |   `-- config.svg - Footer configuration icon.
-|   |   |   `-- window-controls/
-|   |   |       |-- close.svg - Close window control icon.
-|   |   |       |-- maximize.svg - Maximize window control icon.
-|   |   |       |-- minimize.svg - Minimize window control icon.
-|   |   |       `-- restore.svg - Restore window control icon.
-|   |   `-- src/
-|   |       |-- main.rs - Application entry point; resolves project directory args and launches the GUI.
-|   |       `-- gui/
-|   |           |-- fake_agent.rs - Produces fake agent events for the current shell prototype.
-|   |           |-- mod.rs - GUI module root; binds actions, loads assets/fonts, configures the GPUI window.
-|   |           |-- prompt_input.rs - Custom multiline prompt input with selection, cursor, clipboard, and scrolling behavior.
-|   |           |-- shell.rs - Main Spectacular shell UI: header, transcript, sticky prompt, footer, timer, branch status, and fake work loop.
-|   |           |-- theme.rs - Theme token structs and loading/fallback logic for JSON themes.
-|   |           |-- transcript.rs - Converts agent events into user and assistant transcript groups.
-|   |           `-- window_controls.rs - Cross-platform custom close/minimize/maximize controls and window-drag helpers.
-|   |-- spectacular-agent/ - Agent orchestration library crate.
-|   |   |-- Cargo.toml - Agent crate manifest with JSON schema, Tokio, and LLM crate dependencies.
-|   |   |-- project.json - Nx project definition for Rust check, test, and lint targets.
-|   |   |-- examples/
-|   |   |   |-- cancellation.rs - Example for cancelling an active agent run.
-|   |   |   |-- context_filtering.rs - Example for converting stored events into provider context.
-|   |   |   |-- error_paths.rs - Example for provider and agent error handling.
-|   |   |   |-- no_tool_run.rs - Example for a basic agent run without tools.
-|   |   |   |-- queued_runs.rs - Example for queued agent run behavior.
-|   |   |   |-- structured_output.rs - Example for JSON-schema-backed response validation.
-|   |   |   `-- tool_loop.rs - Example for provider-requested tool execution loops.
-|   |   `-- src/
-|   |       |-- agent.rs - Core Agent implementation: run queue integration, provider streaming, tool loops, validation, cancellation, and tests.
-|   |       |-- context.rs - Builds provider messages from stored events and validates provider context limits.
-|   |       |-- error.rs - Agent error enum and mapping from provider errors.
-|   |       |-- event.rs - Agent event model for prompts, deltas, metadata, tools, validation, errors, cancellation, and finish reasons.
-|   |       |-- lib.rs - Public module declarations and re-exports for the agent crate.
-|   |       |-- queue.rs - FIFO run queue with manual queueing, concurrent waiters, and cancellation handling.
-|   |       |-- schema.rs - JSON schema wrapper for validating structured assistant responses.
-|   |       |-- store.rs - Append-only event store with checkpoints and rollback.
-|   |       `-- tool.rs - Tool trait, registry, execution, error formatting, and provider-visible tool call formatting.
-|   |-- spectacular-config/ - Configuration persistence crate.
-|   |   |-- Cargo.toml - Config crate manifest with Serde dependencies.
-|   |   |-- project.json - Nx project definition for Rust check, test, and lint targets.
-|   |   `-- src/
-|   |       `-- lib.rs - Config path resolution, read/write/repair logic, provider API key storage, task model validation, and tests.
-|   |-- spectacular-llms/ - LLM provider abstraction crate.
-|   |   |-- Cargo.toml - LLM crate manifest with reqwest, Serde, and JSON dependencies.
-|   |   |-- project.json - Nx project definition for Rust check, test, and lint targets.
-|   |   |-- examples/
-|   |   |   `-- provider_capabilities.rs - Example for inspecting enabled provider capabilities.
-|   |   `-- src/
-|   |       `-- lib.rs - Provider registry, model metadata, chat/message types, capabilities, cancellation, OpenRouter validation/model fetching, and provider errors.
-|   |-- spectacular-plan/ - Placeholder planning route crate.
-|   |   |-- Cargo.toml - Plan crate manifest depending on `spectacular-config`.
-|   |   |-- project.json - Nx project definition for Rust check, test, and lint targets.
-|   |   `-- src/
-|   |       `-- lib.rs - Validates non-empty plan prompts and complete config before returning placeholder output.
-|-- themes/
-|   `-- default.json - Default GUI theme token file.
-|-- .gitignore - Ignore rules for generated outputs, dependency directories, editor files, Nx cache, and local journals.
-|-- .prettierignore - Files excluded from Prettier formatting.
-|-- .prettierrc - Prettier configuration.
-|-- Cargo.lock - Locked Rust dependency graph for reproducible builds.
-|-- Cargo.toml - Root Cargo workspace manifest and release profile.
-|-- README.md - Repository overview, included Nx/Rust/Python tooling, agent skill catalog, and everyday commands.
-|-- nx.json - Nx workspace configuration, plugins, named inputs, and disabled cloud analytics.
-|-- opencode.json - Local opencode configuration file.
-|-- package-lock.json - Locked npm dependency graph for reproducible installs.
-|-- package.json - npm workspace manifest and Nx/TypeScript/Rust/Python dev dependencies.
-|-- tsconfig.base.json - Root TypeScript compiler options shared by workspace projects.
-`-- tsconfig.json - Root TypeScript project reference container.
+|           `-- SKILL.md - Test and verification workflow.
+|-- .journal/ - Source-controlled planning and delivery notes in this checkout.
+|   `-- 04-2026/
+|       `-- 28-04-2026-time-off-architecture/
+|           |-- bugs/
+|           |   `-- .gitkeep - Keeps the bug-log directory present.
+|           |-- efforts/
+|           |   |-- .gitkeep - Keeps the effort directory present.
+|           |   |-- 01-foundation-app-shell.md - Foundation app shell effort.
+|           |   |-- 02-balance-hydration-slice.md - Balance hydration slice effort.
+|           |   |-- 03-employee-request-slice.md - Employee request slice effort.
+|           |   |-- 04-manager-decision-slice.md - Manager decision slice effort.
+|           |   |-- 05-reconciliation-slice.md - Reconciliation slice effort.
+|           |   |-- 06-failure-scenarios-slice.md - Failure scenario slice effort.
+|           |   `-- 07-storybook-tests-docs.md - Storybook, tests, and docs effort.
+|           |-- decisions.md - Decision log for the time-off architecture work.
+|           `-- ticket.md - Architecture ticket and implementation plan.
+|-- .storybook/
+|   |-- main.ts - Storybook configuration for Next.js Vite stories.
+|   `-- preview.tsx - Storybook decorators and global preview setup.
+|-- public/
+|   |-- file.svg - Default Next public file icon.
+|   |-- globe.svg - Default Next public globe icon.
+|   |-- next.svg - Default Next public Next.js logo.
+|   |-- vercel.svg - Default Next public Vercel logo.
+|   `-- window.svg - Default Next public window icon.
+|-- src/
+|   |-- app/
+|   |   |-- api/
+|   |   |   `-- hcm/
+|   |   |       |-- balances/
+|   |   |       |   |-- batch/
+|   |   |       |   |   `-- route.ts - Batch balance GET route.
+|   |   |       |   `-- route.ts - Single balance read and patch route.
+|   |   |       |-- requests/
+|   |   |       |   |-- [requestId]/
+|   |   |       |   |   `-- route.ts - Manager decision PATCH route.
+|   |   |       |   `-- route.ts - Employee request list, pending list, and submit route.
+|   |   |       `-- state/
+|   |   |           `-- route.ts - Mock HCM state inspect, replace, patch, and reset route.
+|   |   |-- favicon.ico - App favicon.
+|   |   |-- globals.css - Tailwind v4 theme tokens and global styles.
+|   |   |-- layout.tsx - Root layout and query client provider.
+|   |   `-- page.tsx - Home page that renders the app shell.
+|   |-- components/
+|   |   |-- common/
+|   |   |   |-- app-shell.test.tsx - App shell role and workflow tests.
+|   |   |   |-- app-shell.tsx - Employee/manager tabbed application shell.
+|   |   |   |-- balance-freshness-indicator.tsx - Balance freshness status UI.
+|   |   |   |-- reconciliation-banner.stories.tsx - Storybook coverage for reconciliation states.
+|   |   |   `-- reconciliation-banner.tsx - Reconciliation and conflict banner UI.
+|   |   `-- ui/
+|   |       |-- badge.tsx - Badge primitive.
+|   |       |-- button.tsx - Button primitive.
+|   |       |-- card.tsx - Card primitive.
+|   |       `-- tabs.tsx - Tabs primitive.
+|   |-- domain/
+|   |   `-- time-off/
+|   |       |-- constants.ts - Time-off demo constants and thresholds.
+|   |       |-- freshness.test.ts - Freshness and effective-balance tests.
+|   |       |-- freshness.ts - Freshness and effective-balance helpers.
+|   |       |-- lifecycle.ts - Request lifecycle construction and sorting helpers.
+|   |       |-- reconciliation.ts - Client reconciliation helpers.
+|   |       |-- schemas.test.ts - HCM state and request validation tests.
+|   |       |-- schemas.ts - Runtime normalization and validation functions.
+|   |       `-- types.ts - Shared time-off, HCM, and API response types.
+|   |-- features/
+|   |   |-- employee/
+|   |   |   |-- balance-summary.stories.tsx - Balance summary stories.
+|   |   |   |-- balance-summary.test.tsx - Balance summary component tests.
+|   |   |   |-- balance-summary.tsx - Employee balance grid and refresh UI.
+|   |   |   |-- request-form.stories.tsx - Request form stories.
+|   |   |   |-- request-form.test.tsx - Request form tests.
+|   |   |   |-- request-form.tsx - Employee request submission form.
+|   |   |   |-- request-timeline.stories.tsx - Request timeline stories.
+|   |   |   |-- request-timeline.test.tsx - Request timeline tests.
+|   |   |   `-- request-timeline.tsx - Employee request history timeline.
+|   |   `-- manager/
+|   |       |-- manager-decision-panel.stories.tsx - Manager decision panel stories.
+|   |       |-- manager-decision-panel.tsx - Approval, denial, and reconfirmation UI.
+|   |       |-- manager-workflow.test.tsx - Manager workflow component tests.
+|   |       |-- pending-request-queue.stories.tsx - Pending request queue stories.
+|   |       `-- pending-request-queue.tsx - Manager pending request list.
+|   |-- lib/
+|   |   |-- hcm-client/
+|   |   |   |-- client.test.ts - Browser HCM client tests.
+|   |   |   |-- client.ts - Fetch-based HCM client with timeout/error handling.
+|   |   |   `-- errors.ts - HCM client error class.
+|   |   |-- queries/
+|   |   |   |-- balance-queries.ts - React Query balance query hooks.
+|   |   |   |-- query-client-provider.tsx - Query client provider component.
+|   |   |   |-- query-keys.ts - Query key factories.
+|   |   |   `-- request-mutations.ts - Request and decision mutation hooks.
+|   |   `-- utils.ts - Shared class-name utility.
+|   |-- server/
+|   |   `-- hcm/
+|   |       |-- seed/
+|   |       |   `-- default-state.json - Seed employees, locations, balances, requests, and scenario state.
+|   |       |-- balance-api.test.ts - Balance route/service tests.
+|   |       |-- balance-api.ts - Server balance API functions.
+|   |       |-- hcm-service.ts - Request submission and manager decision domain service.
+|   |       |-- request-api.test.ts - Request API tests.
+|   |       |-- request-api.ts - Server request API functions.
+|   |       |-- scenarios.ts - Deterministic HCM scenario mode predicates.
+|   |       |-- state-api.test.ts - State API tests.
+|   |       |-- state-api.ts - Server state API functions.
+|   |       `-- state-store.ts - In-memory mock HCM state store.
+|   `-- test/
+|       |-- hcm-fixture-fetch.ts - Fixture-backed fetch helper for stories/tests.
+|       |-- render-with-query-client.tsx - React Testing Library query-client render helper.
+|       `-- time-off-fixtures.ts - Shared time-off test fixtures.
+|-- tests/
+|   `-- e2e/
+|       `-- time-off.spec.ts - Playwright end-to-end time-off workflow tests.
+|-- .gitignore - Ignore rules for generated files and local dependencies.
+|-- AGENTS.md - Repository instruction requiring Next docs review before Next code edits.
+|-- CLAUDE.md - Claude-facing repository notes.
+|-- README.md - Setup, run, Storybook, verification, and mock HCM API docs.
+|-- TRD.md - Time-off take-home requirements and technical design reference.
+|-- components.json - shadcn/ui component configuration.
+|-- eslint.config.mjs - ESLint flat config.
+|-- next.config.mjs - Next.js configuration.
+|-- package-lock.json - Locked npm dependency graph.
+|-- package.json - npm scripts and Next/React/test dependencies.
+|-- playwright.config.ts - Playwright browser test configuration.
+|-- postcss.config.mjs - Tailwind PostCSS configuration.
+|-- tsconfig.json - TypeScript compiler configuration with `@/*` path alias.
+|-- vitest.config.mts - Vitest unit/component test configuration.
+|-- vitest.setup.ts - Vitest DOM assertion setup.
+`-- vitest.storybook.config.ts - Storybook interaction test configuration.
 ```
 
 ## Working Notes For Agents
 
-- Prefer Nx targets when available: `npx nx <target> <project>`, for example `npx nx test spectacular-agent`.
-- Rust crates are members of the root Cargo workspace, so `cargo test -p <crate>` is also a useful direct verification path.
-- The current GUI shell uses fake agent events; real agent-provider integration lives in `spectacular-agent` and `spectacular-llms`.
-- The repo has local agent skills under `.agents/skills`; load the relevant skill before following a specialized workflow.
-- Do not treat ignored `.journal` files as normal source unless the task explicitly asks for journal planning or effort execution.
+- This checkout currently has no `nx.json` or `Cargo.toml`. Use npm scripts first: `npm run dev`, `npm run typecheck`, `npm run lint`, `npm run test`, `npm run test:storybook`, `npm run test:e2e`, and `npm run build`.
+- If Nx or Cargo files are reintroduced, prefer repo-native targets and keep Cargo workspace awareness, but do not assume those systems exist from stale index data.
+- Before editing Next.js code, follow `AGENTS.md`: read the relevant guide in `node_modules/next/dist/docs/` because this repo uses Next.js 16.2.4.
+- The mock HCM integration is real in-process route-handler state, not a fake UI-only placeholder. Server behavior lives under `src/server/hcm`, API routes under `src/app/api/hcm`, and browser access under `src/lib/hcm-client`.
+- Scenario modes are controlled through `/api/hcm/state` and cover slow reads/writes, insufficient balance, invalid dimensions, silent contradictions, conflicts, and mid-session balance changes.
+- Read `.journal/` only when the task concerns the existing architecture ticket, effort execution, decisions, or debugging history; otherwise treat app source, tests, and README as the primary context.
+- Use local agent skills from `.agents/skills` when a task names one or clearly matches its workflow.

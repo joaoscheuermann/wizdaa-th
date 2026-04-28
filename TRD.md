@@ -54,10 +54,16 @@ The UI must remain functional and accessible if custom styling is minimal. Visua
 ### In Scope
 
 - Employee balance view with one row per employee/location balance.
-- Employee request form with location selection, date range, requested days, and optional note.
+- User workspace loading from a URL path parameter, using `/:id` such as `localhost:3000/:id`.
+- Employee-scoped balance visibility so employee users can see only their own employee balances.
+- Employee requested PTO table scoped to the active user.
+- Employee request creation through an icon-only `+` button that opens a modal.
+- Employee request form with location selection, date range, calculated requested days, and optional note.
 - Immediate request feedback that distinguishes local pending state from final HCM-confirmed state.
+- Manager balance table showing all employee balances.
 - Manager pending request list.
-- Manager request detail/review view with balance context visible.
+- Manager workspace layout with an all-employee balance table column and a pending-request workspace column.
+- Manager request detail/review modal with balance context and decision fields visible.
 - Manager approve and deny actions.
 - Fresh balance verification before manager approval.
 - Background reconciliation of balances against HCM.
@@ -78,10 +84,14 @@ The UI must remain functional and accessible if custom styling is minimal. Visua
 
 ## 7. Decisions and Assumptions
 
-- The app will use seeded demo users, locations, and a visible role switcher instead of real authentication. This keeps the take-home focused on the HCM source-of-truth problem, request lifecycle, reconciliation, and test rigor instead of production identity concerns.
-- Requested time-off duration will be manually entered as days. The app will still collect start and end dates and validate that the date range is coherent, but it will not calculate business days from weekends, holidays, half-days, regional calendars, or work schedules. This is important because calendar-aware duration calculation is a separate product domain that would obscure the assignment's core balance-consistency problem.
-- Requested days will support `0.5` day increments, with a minimum of `0.5` days and a maximum of the selected balance's effective available days at validation time. This gives the demo realistic partial-day behavior without introducing calendar policy complexity.
-- Date fields will be treated as local calendar dates in one fixed demo timezone. The date range is inclusive of start and end dates for display purposes, but duration is still controlled by the manually entered requested days. The implementation will not model timezone conversion because timezone correctness is outside the take-home focus and would add unnecessary complexity for the HCM consistency problem being evaluated.
+- The app will use seeded demo users and locations loaded from `/:id` instead of real authentication. This keeps the take-home focused on the HCM source-of-truth problem, request lifecycle, reconciliation, and test rigor instead of production identity concerns.
+- The route `/:id` identifies the active seeded user. If the ID belongs to an employee, the app renders the employee workspace and restricts visible balances and request history to that employee. If the ID belongs to a manager, the app renders the manager workspace and also exposes the same self-service requested PTO table scoped to the manager's own employee record.
+- Employee users must not be able to view other employees' balances through the UI, direct URL navigation, or product data-fetching paths. This is a demo authorization rule even though production authentication is out of scope.
+- The employee self-service area should show requested PTOs as a table. The primary create action is an icon-only `+` button near the table title; clicking it opens a modal containing the fields and behavior currently provided by the `Request PTO` panel.
+- On desktop-sized viewports, the manager workspace should use a two-column layout where the all-employee balances table occupies about 60% of the horizontal space and the Manager Workspace occupies the remaining space for pending manager requests. Each column should scroll independently when its content overflows. On narrow screens, the same content may stack while preserving the balances-first then pending-requests order.
+- Requested time-off duration will be calculated automatically from the selected start and end dates. The calculation uses whole inclusive calendar days and does not model weekends, holidays, half-days, regional calendars, or work schedules.
+- The calculated UI value will always be at least `1.0` day for a valid date range and cannot exceed the selected balance's effective available days at validation time. This keeps the demo behavior predictable without introducing calendar policy complexity.
+- Date fields will be treated as local calendar dates in one fixed demo timezone. The date range is inclusive of start and end dates for both display and requested-day calculation. The implementation will not model timezone conversion because timezone correctness is outside the take-home focus and would add unnecessary complexity for the HCM consistency problem being evaluated.
 - Balances become stale after 30 seconds since the last authoritative verification. This threshold must be implemented as a named constant so it is easy to tune. A short threshold is important for the demo because reviewers can visibly exercise fresh, stale, and refreshed states without waiting several minutes.
 - Background reconciliation will run every 30 seconds while the app is visible, with targeted per-cell reads before balance-consuming actions. This keeps the expensive batch endpoint from becoming the only correctness mechanism while still proving the app can reconcile mid-session HCM changes.
 - HCM write operations will use a 5 second demo timeout. Write mutations must not perform repeated automatic retries; instead, the UI should preserve the failed action as retryable and let the user manually retry. This avoids duplicate request or approval effects while still demonstrating recoverability.
@@ -165,13 +175,21 @@ Use shadcn/ui components as the default building blocks:
 The component tree should make data authority boundaries visible:
 
 - `AppShell`
-  - Owns high-level navigation between Employee and Manager views.
+  - Resolves the active seeded user from the `/:id` route.
+  - Owns high-level rendering of Employee or Manager workspaces based on the resolved user.
 - `EmployeeTimeOffPage`
-  - Fetches initial balances and request history.
-  - Renders balance and request sections.
+  - Fetches initial balances and request history scoped to the active employee user.
+  - Renders balance and requested PTO table sections.
 - `BalanceSummary`
   - Displays per-location balances and freshness states.
   - Does not own mutation behavior.
+- `RequestedPtoTable`
+  - Displays PTO requests scoped to the active employee user.
+  - Shows request status, location, requested days, dates, and relevant lifecycle context.
+  - Provides the icon-only `+` create action.
+- `RequestPtoModal`
+  - Opens from the `+` action in the requested PTO table header.
+  - Contains the current `Request PTO` panel contents.
 - `RequestForm`
   - Owns draft inputs.
   - Invokes request submission mutation.
@@ -179,13 +197,21 @@ The component tree should make data authority boundaries visible:
 - `RequestTimeline`
   - Shows employee-facing lifecycle history.
 - `ManagerReviewPage`
-  - Fetches pending requests.
-  - Renders queue and selected request detail.
+  - Fetches all employee balances and pending manager requests.
+  - Renders a desktop two-column layout with the balances table using about 60% of the available width and the Manager Workspace using the remaining width.
+  - Allows the two desktop columns to scroll independently when their content overflows.
+- `AllEmployeeBalancesTable`
+  - Displays all employee/location balances for manager users.
+  - Preserves freshness, pending, effective available, conflict, and error states for each balance row.
+- `ManagerWorkspace`
+  - Renders pending manager requests.
+  - Opens request detail in a modal when a pending request is selected.
 - `PendingRequestQueue`
   - Displays pending requests and high-level status.
 - `ManagerDecisionPanel`
   - Forces fresh per-cell balance verification before approval.
   - Invokes approve or deny mutation.
+  - Provides the decision fields rendered inside the manager request detail modal.
 - `BalanceFreshnessIndicator`
   - Shared status display for fresh, refreshing, stale, conflict, and error states.
 - `ReconciliationBanner`
@@ -269,6 +295,9 @@ The initial seed fixture must include:
 - `GET /api/hcm/balances?employeeId={id}&locationId={id}`
   - Returns one authoritative balance cell.
   - Used before submission and manager approval.
+- `PATCH /api/hcm/balances`
+  - Writes one authoritative employee/location balance cell and returns the updated cell.
+  - Used to prove the real-time per-cell write contract independently from the request lifecycle; request submission and approval may call the same domain behavior through `hcm-service.ts`.
 - `POST /api/hcm/requests`
   - Attempts to create a request against a balance cell.
   - Can succeed, reject for insufficient balance, reject for invalid dimensions, delay, silently fail, or return a wrong success based on scenario controls.
@@ -390,6 +419,18 @@ Run periodic reconciliation with the batch endpoint and targeted refetches:
 
 ## 13. User Stories and Acceptance Criteria
 
+### Story 0: User Workspace Loads From URL
+
+As a seeded demo user, I want my workspace to load directly from the URL so that I can open the correct employee or manager experience without using an in-app role switcher.
+
+Acceptance criteria:
+
+- Given the route is opened as `/:id`, when the ID matches a seeded employee user, then the employee workspace loads for that employee.
+- Given the route is opened as `/:id`, when the ID matches a seeded manager user, then the manager workspace loads for that manager and the manager can access the same requested PTO table scoped to their own employee record.
+- Given the route ID does not match a seeded user, when the app renders, then a clear not-found or invalid-user state is shown.
+- Given the active route changes from one valid user ID to another, when the new workspace loads, then stale form state, selected request state, and user-specific balance data from the previous user are cleared.
+- Given a user workspace is loaded from the URL, when the UI fetches product data, then the returned data is scoped to the active user's allowed visibility.
+
 ### Story 1: Employee Views Per-Location Balances
 
 As an employee, I want to see all my time-off balances by location so that I know what I can request.
@@ -399,6 +440,8 @@ Acceptance criteria:
 - Given the employee view is opened, when balances are loading, then skeleton rows are shown.
 - Given the batch endpoint succeeds, when balances load, then each employee/location balance appears in a table or structured list.
 - Given a balance row was loaded, when the user inspects it, then the row shows available days, pending days, effective available days, and freshness status.
+- Given the active user is an employee, when balances load, then only that employee's balances are visible.
+- Given the active user is an employee, when another employee ID exists in the seeded data, then that other employee's balance rows are not rendered or reachable through employee product data fetches.
 - Given the batch endpoint fails, when the employee view renders, then the user sees a retryable error state.
 - Given there are no balances, when the view renders, then an empty state explains that no location balances are available.
 
@@ -414,12 +457,27 @@ Acceptance criteria:
 - Given a refresh returns a different balance, when the UI updates, then the employee sees a non-disruptive message that the balance changed.
 - Given a refresh fails, when the previous balance remains visible, then the row indicates that the displayed value may be stale.
 
+### Story 2A: Employee Views Requested PTOs
+
+As an employee, I want to see my requested PTOs in a table so that I can understand the status of my past and pending requests at a glance.
+
+Acceptance criteria:
+
+- Given the employee workspace is opened, when requested PTOs are loading, then skeleton rows are shown in the requested PTO table.
+- Given requested PTOs exist for the active user, when the table renders, then each row shows the request status, location, requested days, date range, and relevant status reason or lifecycle context.
+- Given the active user is an employee, when requested PTOs load, then only that employee's requests are visible.
+- Given the active user is a manager with self-service access, when the requested PTO table renders, then it shows only the manager's own employee PTO requests and not requests for all managed employees.
+- Given no requested PTOs exist for the active user, when the table renders, then an empty state is shown.
+- Given requested PTO data fails to load, when the table renders, then the user sees a retryable error state.
+
 ### Story 3: Employee Submits a Request
 
 As an employee, I want to submit a time-off request against a selected location so that my manager can review it.
 
 Acceptance criteria:
 
+- Given the requested PTO table is visible, when the user clicks the icon-only `+` button, then a modal opens with the current `Request PTO` panel fields.
+- Given the request modal is open, when the user closes it without submitting, then no draft request is created and the requested PTO table remains visible.
 - Given the employee has selected a location and valid date range, when they enter requested days within the visible effective balance, then the submit action is enabled.
 - Given required fields are missing, when the employee attempts to submit, then field-level validation messages are shown.
 - Given requested days are entered, when the value is less than `0.5`, not in `0.5` increments, or greater than effective available days, then validation prevents submission.
@@ -427,6 +485,7 @@ Acceptance criteria:
 - Given the employee submits, when the app begins submission, then the UI shows a pending state immediately.
 - Given the selected balance is stale, when the employee submits, then the app verifies the per-cell balance before sending the request.
 - Given HCM accepts the request, when submission completes, then the request appears as pending manager review and requested days are reflected as pending days.
+- Given HCM accepts the request, when submission completes, then the request modal closes or shows a completed state and the requested PTO table includes the new pending request.
 
 ### Story 4: Employee Handles HCM Rejection
 
@@ -463,14 +522,20 @@ Acceptance criteria:
 
 ### Story 7: Manager Reviews Pending Requests
 
-As a manager, I want to see pending requests with balance context so that I can make informed decisions.
+As a manager, I want to see all employee balances next to my pending request workspace so that I can make informed decisions without switching views.
 
 Acceptance criteria:
 
-- Given the manager view is opened, when pending requests are loading, then skeleton rows are shown.
-- Given pending requests exist, when the manager view renders, then requests are listed with employee, location, requested days, dates, and current known balance context.
-- Given no pending requests exist, when the manager view renders, then an empty state is shown.
-- Given request data fails to load, when the manager view renders, then a retryable error is shown.
+- Given the manager view is opened on a desktop-sized viewport, when balances and pending requests load, then the layout shows an all-employee balances table column occupying about 60% of the horizontal space and a Manager Workspace column occupying the remaining space.
+- Given either manager column has more content than fits vertically, when the manager view renders on a desktop-sized viewport, then each column can scroll independently without losing access to the other column.
+- Given the manager view is opened on a narrow viewport, when balances and pending requests load, then the all-employee balances table and Manager Workspace remain usable without horizontal overflow.
+- Given balances are loading, when the manager view renders, then the balance table column shows skeleton rows.
+- Given pending requests are loading, when the manager view renders, then the Manager Workspace shows skeleton rows.
+- Given balance rows exist, when the manager view renders, then the manager can see all employees' location balances with available days, pending days, effective available days, and freshness status.
+- Given pending requests exist, when the Manager Workspace renders, then requests are listed with employee, location, requested days, dates, and current known balance context.
+- Given no pending requests exist, when the Manager Workspace renders, then an empty state is shown.
+- Given balance or request data fails to load, when the manager view renders, then the affected column shows a retryable error without hiding successfully loaded content in the other column.
+- Given a pending request row is clicked, when the request is selected, then a modal opens with the fields and actions currently provided by the Manager Decision panel.
 
 ### Story 8: Manager Approves with Fresh Balance Verification
 
@@ -478,7 +543,8 @@ As a manager, I want approval to verify the balance at decision time so that I d
 
 Acceptance criteria:
 
-- Given a manager opens request detail, when balance context is stale, then the UI shows that the balance must be refreshed before approval.
+- Given a manager opens request detail from the Manager Workspace, when the modal appears, then it shows the request fields, balance context, approve action, deny action, denial reason field, verification state, and retryable error state from the Manager Decision panel.
+- Given a manager opens request detail, when balance context is stale, then the modal shows that the balance must be refreshed before approval.
 - Given the manager clicks Approve, when the app begins approval, then the UI shows `approval_pending_hcm`.
 - Given fresh verification returns a changed but sufficient balance, when the manager is deciding, then the updated balance is shown and approval requires another explicit manager confirmation.
 - Given the real-time balance read confirms sufficient balance, when HCM approval succeeds, then the request becomes approved.
@@ -503,7 +569,7 @@ As a reviewer, I want the state matrix represented in tests and Storybook so tha
 Acceptance criteria:
 
 - Given Storybook runs, when the reviewer opens balance components, then loading, empty, fresh, stale, refreshing, error, and conflict states are available as stories.
-- Given Storybook runs, when the reviewer opens request components, then optimistic pending, rollback, HCM rejected, silent wrong success, and mid-session refresh states are available as stories.
+- Given Storybook runs, when the reviewer opens request components, then requested PTO table states, request modal states, optimistic pending, rollback, HCM rejected, silent wrong success, and mid-session refresh states are available as stories.
 - Given interaction tests run, when core user flows are exercised, then employee submit, HCM rejection, manager approval, and conflict paths are covered.
 - Given integration tests run, when deterministic mock HCM scenarios are selected, then tests verify the UI behavior for each required scenario.
 
@@ -517,10 +583,16 @@ Required stories:
 - `BalanceSummary/Stale`
 - `BalanceSummary/Refreshing`
 - `BalanceSummary/RefreshFailed`
+- `BalanceSummary/Conflict`
 - `BalanceSummary/BalanceRefreshedMidSession`
+- `RequestedPtoTable/Loading`
+- `RequestedPtoTable/Empty`
+- `RequestedPtoTable/WithRequests`
+- `RequestedPtoTable/Error`
+- `RequestedPtoTable/ManagerSelfService`
+- `RequestPtoModal/OpenDraft`
 - `RequestForm/EmptyDraft`
 - `RequestForm/ValidationErrors`
-- `RequestForm/FractionalDayValidation`
 - `RequestForm/OptimisticPending`
 - `RequestForm/HcmRejectedInsufficientBalance`
 - `RequestForm/HcmRejectedInvalidDimension`
@@ -531,15 +603,18 @@ Required stories:
 - `RequestTimeline/Approved`
 - `RequestTimeline/Denied`
 - `RequestTimeline/ConflictNeedsReview`
+- `RequestTimeline/SyncFailedRetryable`
 - `ManagerQueue/Loading`
 - `ManagerQueue/Empty`
 - `ManagerQueue/WithPendingRequests`
+- `ManagerQueue/Error`
 - `ManagerDecisionPanel/FreshBalance`
 - `ManagerDecisionPanel/StaleBalanceRequiresVerification`
 - `ManagerDecisionPanel/ChangedButSufficientBalance`
 - `ManagerDecisionPanel/ApprovalPendingHcm`
 - `ManagerDecisionPanel/ApprovalRejectedByHcm`
 - `ManagerDecisionPanel/SilentApprovalFailure`
+- `ManagerDecisionPanel/DenialRetryableFailure`
 - `ReconciliationBanner/BalanceChanged`
 - `ReconciliationBanner/InFlightActionConflict`
 
@@ -577,6 +652,7 @@ Use integration tests against deterministic mock HCM scenarios for:
 - Initial batch hydration.
 - Per-cell read before employee submission.
 - Per-cell read before manager approval.
+- Real-time per-cell balance write.
 - Anniversary bonus mid-session.
 - Insufficient balance conflict.
 - Invalid dimension conflict.
@@ -672,11 +748,11 @@ JavaScript would match the initial scaffold, but the assignment depends on expli
 
 Chosen approach: migrate the app to TypeScript so these contracts are encoded in the codebase and test fixtures.
 
-### Calendar-Aware Duration vs. Manual Requested Days
+### Calendar-Aware Duration vs. Calculated Requested Days
 
 Calendar-aware duration calculation would require holidays, weekends, regional schedules, half-day policies, and timezone rules that are not central to the assignment.
 
-Chosen approach: collect dates for context, use one fixed demo timezone, and let the user manually enter requested days in `0.5` day increments.
+Chosen approach: collect dates, use one fixed demo timezone, and calculate requested days as whole inclusive calendar days from the selected range.
 
 ### Next.js Route Handlers vs. MSW
 
@@ -695,10 +771,14 @@ Chosen approach: provide local-only Storybook with a documented `npm run storybo
 - Employee has multiple balances for different locations.
 - Employee selects a location whose balance disappears or becomes invalid during form entry.
 - Employee requests exactly the available effective balance.
-- Employee requests a fractional `0.5` day amount.
+- Employee changes the end date and the requested-day total updates automatically.
 - Employee enters a requested-day value that is not in `0.5` increments.
 - Employee requests more than available balance.
 - Employee has pending days that reduce effective available balance.
+- Employee opens the request modal and closes it without submitting.
+- Employee submits a request from the modal and the requested PTO table refreshes.
+- Employee has no requested PTOs.
+- Manager user views their own requested PTO table while also having access to manager workflows.
 - Anniversary bonus arrives while no form is open.
 - Anniversary bonus arrives while the selected form location is being edited.
 - Anniversary bonus arrives during request submission.
@@ -711,17 +791,37 @@ Chosen approach: provide local-only Storybook with a documented `npm run storybo
 - Batch reconciliation returns older data than a recent per-cell read.
 - User refreshes the page while a request is pending.
 - Network recovers after a retryable failure.
+- User opens `/:id` for an unknown user.
+- User switches directly from one valid `/:id` route to another valid `/:id` route.
+- Employee user attempts to access another employee's balances through URL navigation or stale cached data.
+- Manager opens the request detail modal while the balance table is still refreshing.
+- Manager opens a pending request, then the request is no longer pending before a decision is submitted.
+- Manager desktop layout has enough pending requests or balance rows to require independent scrolling behavior.
 
 ## 19. Completion Checklist
 
 - Employee balance view exists.
+- User workspace loads from `/:id`.
+- Invalid or unknown `/:id` shows a clear not-found or invalid-user state.
+- Employee balance queries and UI are scoped to the active employee.
+- Employee requested PTO table exists.
+- Employee requested PTO queries and UI are scoped to the active employee.
+- Request PTO creation is launched by an icon-only `+` button.
+- Request PTO modal contains the current Request PTO panel fields and behavior.
 - Employee request form exists.
 - App has been migrated to TypeScript.
+- Manager users have access to their own requested PTO table through the same `/:id` route.
 - Manager pending queue exists.
+- Manager all-employee balances table exists.
+- Manager desktop layout uses an approximately 60% balances column and remaining-width Manager Workspace column.
+- Manager desktop balance and workspace columns scroll independently when content overflows.
+- Manager pending request selection opens a modal.
+- Manager decision panel fields and actions render inside the selected pending request modal.
 - Manager queue sorts oldest pending requests first.
 - Manager decision view exists.
 - Seed fixtures include at least two employees, one manager, two to three locations, one pending request, and one low-balance scenario.
 - Mock HCM real-time per-cell read exists.
+- Mock HCM real-time per-cell write exists.
 - Mock HCM write/decision endpoint exists.
 - Mock HCM batch corpus endpoint exists.
 - Mock HCM anniversary bonus simulation exists.

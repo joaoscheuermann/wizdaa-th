@@ -1,0 +1,147 @@
+{
+  "employees": [
+    {
+      "id": "emp-avery",
+      "name": "Avery Stone",
+      "role": "employee",
+      "managerId": "mgr-morgan"
+    },
+    {
+      "id": "emp-jordan",
+      "name": "Jordan Lee",
+      "role": "employee",
+      "managerId": "mgr-morgan"
+    },
+    {
+      "id": "mgr-morgan",
+      "name": "Morgan Patel",
+      "role": "manager"
+    }
+  ],
+  "locations": [
+    {
+      "id": "loc-nyc",
+      "name": "New York HQ",
+      "code": "NYC"
+    },
+    {
+      "id": "loc-austin",
+      "name": "Austin Studio",
+      "code": "AUS"
+    },
+    {
+      "id": "loc-remote",
+      "name": "Remote Hub",
+      "code": "REM"
+    }
+  ],
+  "timeOffTypes": [
+    {
+      "id": "pto",
+      "name": "Paid Time Off"
+    }
+  ],
+  "balances": [
+    {
+      "employeeId": "emp-avery",
+      "locationId": "loc-nyc",
+      "timeOffTypeId": "pto",
+      "availableDays": 24,
+      "pendingDays": 0,
+      "lastVerifiedAt": "2026-04-28T12:00:00.000Z",
+      "source": "hcm",
+      "version": 1
+    },
+    {
+      "employeeId": "emp-avery",
+      "locationId": "loc-austin",
+      "timeOffTypeId": "pto",
+      "availableDays": 8,
+      "pendingDays": 2,
+      "lastVerifiedAt": "2026-04-28T12:00:00.000Z",
+      "source": "hcm",
+      "version": 1
+    },
+    {
+      "employeeId": "emp-avery",
+      "locationId": "loc-remote",
+      "timeOffTypeId": "pto",
+      "availableDays": 3,
+      "pendingDays": 0,
+      "lastVerifiedAt": "2026-04-28T12:00:00.000Z",
+      "source": "hcm",
+      "version": 1
+    },
+    {
+      "employeeId": "emp-jordan",
+      "locationId": "loc-nyc",
+      "timeOffTypeId": "pto",
+      "availableDays": 1,
+      "pendingDays": 0,
+      "lastVerifiedAt": "2026-04-28T12:00:00.000Z",
+      "source": "hcm",
+      "version": 1
+    },
+    {
+      "employeeId": "emp-jordan",
+      "locationId": "loc-austin",
+      "timeOffTypeId": "pto",
+      "availableDays": 16,
+      "pendingDays": 4,
+      "lastVerifiedAt": "2026-04-28T12:00:00.000Z",
+      "source": "hcm",
+      "version": 1
+    },
+    {
+      "employeeId": "mgr-morgan",
+      "locationId": "loc-nyc",
+      "timeOffTypeId": "pto",
+      "availableDays": 18,
+      "pendingDays": 0,
+      "lastVerifiedAt": "2026-04-28T12:00:00.000Z",
+      "source": "hcm",
+      "version": 1
+    },
+    {
+      "employeeId": "mgr-morgan",
+      "locationId": "loc-remote",
+      "timeOffTypeId": "pto",
+      "availableDays": 6,
+      "pendingDays": 0,
+      "lastVerifiedAt": "2026-04-28T12:00:00.000Z",
+      "source": "hcm",
+      "version": 1
+    }
+  ],
+  "requests": [
+    {
+      "requestId": "req-seeded-pending",
+      "employeeId": "emp-jordan",
+      "employeeName": "Jordan Lee",
+      "timeOffTypeId": "pto",
+      "timeOffTypeName": "Paid Time Off",
+      "locationId": "loc-austin",
+      "locationName": "Austin Studio",
+      "requestedDays": 2,
+      "startDate": "2026-05-11",
+      "endDate": "2026-05-12",
+      "note": "Seeded pending request placeholder for manager workflow.",
+      "status": "submitted_pending_manager",
+      "createdAt": "2026-04-28T12:10:00.000Z",
+      "updatedAt": "2026-04-28T12:10:00.000Z",
+      "lastHcmVerificationAt": "2026-04-28T12:10:00.000Z",
+      "balanceVersionAtSubmission": 1,
+      "auditEvents": [
+        {
+          "at": "2026-04-28T12:10:00.000Z",
+          "type": "seeded",
+          "message": "Seeded request awaits manager review."
+        }
+      ]
+    }
+  ],
+  "scenario": {
+    "mode": "normal",
+    "updatedAt": "2026-04-28T12:00:00.000Z"
+  }
+}

@@ -1,0 +1,14 @@
+export const BALANCE_FRESHNESS_THRESHOLD_MS = 30_000
+
+export const BATCH_RECONCILIATION_INTERVAL_MS =
+  BALANCE_FRESHNESS_THRESHOLD_MS
+
+export const HCM_WRITE_TIMEOUT_MS = 5_000
+
+export const DEMO_TIME_ZONE = "America/New_York"
+
+export const DEFAULT_TIME_OFF_TYPE_ID = "pto"
+
+export const DEFAULT_EMPLOYEE_ID = "emp-avery"
+
+export const LOW_BALANCE_THRESHOLD_DAYS = 2
