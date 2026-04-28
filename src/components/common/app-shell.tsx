@@ -131,7 +131,7 @@ function ShellFrame({
 }>) {
   return (
     <main className="min-h-dvh bg-background text-foreground">
-      <div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-dvh w-full max-w-[92rem] flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -264,14 +264,14 @@ function EmployeePanel({
   return (
     <section
       aria-labelledby="employee-workspace-heading"
-      className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]"
+      className="grid gap-4"
     >
-      <BalanceSummary employeeId={routeUser.id} />
-
       <RequestedPtoTable
         employeeId={routeUser.id}
         headerAction={<RequestPtoModal selectedEmployeeId={routeUser.id} />}
       />
+
+      <BalanceSummary employeeId={routeUser.id} />
     </section>
   )
 }
@@ -287,13 +287,13 @@ function ManagerPanel({
 
       <section
         aria-label="Manager self-service"
-        className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]"
+        className="grid gap-4"
       >
-        <BalanceSummary employeeId={routeUser.id} />
         <RequestedPtoTable
           employeeId={routeUser.id}
           headerAction={<RequestPtoModal selectedEmployeeId={routeUser.id} />}
         />
+        <BalanceSummary employeeId={routeUser.id} />
       </section>
     </div>
   )

@@ -40,7 +40,10 @@ describe("BalanceSummary", () => {
 
     expect(screen.getByText("Loading")).toBeInTheDocument()
 
-    const newYork = await screen.findByRole("article", {
+    const table = await screen.findByRole("table", {
+      name: "Employee balances",
+    })
+    const newYork = within(table).getByRole("row", {
       name: /new york hq/i,
     })
 
@@ -48,6 +51,11 @@ describe("BalanceSummary", () => {
     expect(screen.getByText("Austin Studio")).toBeInTheDocument()
     expect(screen.getByText("6.0 days")).toBeInTheDocument()
     expect(screen.getByText("Remote Hub")).toBeInTheDocument()
+    expect(screen.getByText("Fresh")).toBeInTheDocument()
+    expect(screen.getByText(/Verified \d+s ago from hcm/)).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Refresh balances" })
+    ).toBeInTheDocument()
     expect(
       screen.queryByRole("button", { name: "Avery Stone" })
     ).not.toBeInTheDocument()
@@ -82,6 +90,29 @@ describe("BalanceSummary", () => {
     ).not.toBeInTheDocument()
   })
 
+  it("shows low balance as an icon inside the available cell", async () => {
+    stubBatchFetch()
+    renderWithQueryClient(<BalanceSummary employeeId="emp-jordan" />)
+
+    const table = await screen.findByRole("table", {
+      name: "Employee balances",
+    })
+    const newYork = within(table).getByRole("row", {
+      name: /new york hq/i,
+    })
+
+    const cells = within(newYork).getAllByRole("cell")
+    const availableCell = cells[1]
+
+    expect(availableCell).toHaveTextContent("1.0 days")
+    expect(
+      within(availableCell).getByLabelText("Low balance")
+    ).toBeInTheDocument()
+    expect(within(newYork).queryByText("Fresh")).not.toBeInTheDocument()
+    expect(screen.getByText("Fresh")).toBeInTheDocument()
+    expect(within(newYork).queryByText("Low balance")).not.toBeInTheDocument()
+  })
+
   it("shows a refreshed-balance message when background reconciliation changes a balance", async () => {
     resetHcmState()
     vi.stubGlobal(
@@ -93,7 +124,10 @@ describe("BalanceSummary", () => {
       <BalanceSummary employeeId="emp-avery" />
     )
 
-    const newYork = await screen.findByRole("article", {
+    const table = await screen.findByRole("table", {
+      name: "Employee balances",
+    })
+    const newYork = within(table).getByRole("row", {
       name: /new york hq/i,
     })
 
@@ -143,7 +177,10 @@ describe("BalanceSummary", () => {
       <BalanceSummary employeeId="emp-avery" />
     )
 
-    const newYork = await screen.findByRole("article", {
+    const table = await screen.findByRole("table", {
+      name: "Employee balances",
+    })
+    const newYork = within(table).getByRole("row", {
       name: /new york hq/i,
     })
 
@@ -155,7 +192,10 @@ describe("BalanceSummary", () => {
       await screen.findByText(/Balance refresh failed/i)
     ).toBeInTheDocument()
     expect(within(newYork).getAllByText("24.0 days")).toHaveLength(2)
-    expect(within(newYork).getByText("Refresh Failed")).toBeInTheDocument()
+    expect(screen.getByText("Refresh Failed")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Refresh balances" })
+    ).toBeInTheDocument()
   })
 })
 

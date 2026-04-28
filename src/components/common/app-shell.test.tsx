@@ -29,9 +29,16 @@ describe("AppShell", () => {
     expect(
       await screen.findByRole("heading", { name: "Employee balances" })
     ).toBeInTheDocument()
-    expect(
-      screen.getByRole("heading", { name: "Requested PTO" })
-    ).toBeInTheDocument()
+    const requestedPtoHeading = screen.getByRole("heading", {
+      name: "Requested PTO",
+    })
+    const balancesHeading = screen.getByRole("heading", {
+      name: "Employee balances",
+    })
+
+    expect(requestedPtoHeading.compareDocumentPosition(balancesHeading)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    )
     expect(
       screen.getByRole("button", { name: "Request PTO" })
     ).toBeInTheDocument()

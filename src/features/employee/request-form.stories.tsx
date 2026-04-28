@@ -93,7 +93,7 @@ export const Rollback: Story = {
     ).toBeInTheDocument()
     await waitFor(() =>
       expect(
-        within(canvas.getByRole("article", { name: /new york hq/i })).getByText(
+        within(canvas.getByRole("row", { name: /new york hq/i })).getByText(
           "0.0 days"
         )
       ).toBeInTheDocument()

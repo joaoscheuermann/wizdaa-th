@@ -1,24 +1,43 @@
 "use client"
 
 import { useIsMutating } from "@tanstack/react-query"
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock3,
+  RefreshCw,
+  TriangleAlert,
+  type LucideIcon,
+} from "lucide-react"
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
-import { BalanceFreshnessIndicator } from "@/components/common/balance-freshness-indicator"
 import { ReconciliationBanner } from "@/components/common/reconciliation-banner"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import {
-  LOW_BALANCE_THRESHOLD_DAYS,
-} from "@/domain/time-off/constants"
-import { getDisplayBalanceFreshnessStatus } from "@/domain/time-off/freshness"
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { LOW_BALANCE_THRESHOLD_DAYS } from "@/domain/time-off/constants"
+import {
+  formatBalanceFreshnessStatus,
+  formatRelativeFreshness,
+  getDisplayBalanceFreshnessStatus,
+} from "@/domain/time-off/freshness"
 import {
   getReconciledBalanceChanges,
   type ReconciledBalanceChange,
@@ -44,6 +63,36 @@ interface ScopedReconciliationNotice extends ReconciliationNotice {
 }
 
 const formatDays = (days: number) => `${days.toFixed(1)} days`
+
+const freshnessStatusIcon: Record<BalanceFreshnessStatus, LucideIcon> = {
+  loading: Clock3,
+  fresh: CheckCircle2,
+  refreshing: RefreshCw,
+  stale: Clock3,
+  refresh_failed: AlertCircle,
+  conflict: AlertCircle,
+  error: AlertCircle,
+}
+
+const freshnessStatusVariant = (status: BalanceFreshnessStatus) => {
+  if (status === "refresh_failed" || status === "error") return "destructive"
+  if (status === "stale" || status === "refreshing") return "outline"
+
+  return "secondary"
+}
+
+const getOldestVerifiedBalance = (balances: readonly BalanceCell[]) =>
+  balances.reduce<BalanceCell | undefined>((oldest, balance) => {
+    if (!oldest) return balance
+
+    const oldestMs = Date.parse(oldest.lastVerifiedAt)
+    const candidateMs = Date.parse(balance.lastVerifiedAt)
+
+    if (Number.isNaN(candidateMs)) return balance
+    if (Number.isNaN(oldestMs)) return oldest
+
+    return candidateMs < oldestMs ? balance : oldest
+  }, undefined)
 
 const formatBalanceChangeMessage = (
   changes: readonly ReconciledBalanceChange[],
@@ -97,6 +146,7 @@ export function BalanceSummary({ employeeId }: BalanceSummaryProps) {
     isFetching,
     isLoading,
     isRefetchError,
+    refetch,
   } =
     useBalanceBatchQuery()
   const nowMs = useFreshnessClock()
@@ -113,6 +163,9 @@ export function BalanceSummary({ employeeId }: BalanceSummaryProps) {
   const refreshFailed = Boolean(data && isRefetchError)
   const visibleNotice =
     notice?.employeeId === routeEmployeeId ? notice : null
+  const refreshBalances = () => {
+    void refetch()
+  }
 
   useEffect(() => {
     if (!data) return
@@ -138,7 +191,14 @@ export function BalanceSummary({ employeeId }: BalanceSummaryProps) {
     return (
       <BalanceCardShell
         description="Hydrating the batch corpus from mock HCM."
-        action={<Badge variant="outline">Loading</Badge>}
+        action={
+          <BalanceFreshnessControl
+            canRefresh={!isFetching}
+            onRefresh={refreshBalances}
+            status="loading"
+          />
+        }
+        verification="Verification pending"
       >
         <div className="grid gap-3 sm:grid-cols-3">
           {["location", "available", "effective"].map((label) => (
@@ -159,7 +219,14 @@ export function BalanceSummary({ employeeId }: BalanceSummaryProps) {
     return (
       <BalanceCardShell
         description="The HCM batch endpoint did not return balances."
-        action={<Badge variant="destructive">Error</Badge>}
+        action={
+          <BalanceFreshnessControl
+            canRefresh={!isFetching}
+            onRefresh={refreshBalances}
+            status="error"
+          />
+        }
+        verification="Verification unavailable"
       >
         <div
           role="alert"
@@ -176,7 +243,14 @@ export function BalanceSummary({ employeeId }: BalanceSummaryProps) {
     return (
       <BalanceCardShell
         description="No balance rows were returned by HCM."
-        action={<Badge variant="outline">Empty</Badge>}
+        action={
+          <BalanceFreshnessControl
+            canRefresh={!isFetching}
+            onRefresh={refreshBalances}
+            status="error"
+          />
+        }
+        verification="Verification unavailable"
       >
         <EmptyBalanceState />
       </BalanceCardShell>
@@ -187,29 +261,46 @@ export function BalanceSummary({ employeeId }: BalanceSummaryProps) {
     return (
       <BalanceCardShell
         description="No balance rows were returned for the active route employee."
-        action={<Badge variant="outline">Empty</Badge>}
+        action={
+          <BalanceFreshnessControl
+            canRefresh={!isFetching}
+            onRefresh={refreshBalances}
+            status="error"
+          />
+        }
+        verification="Verification unavailable"
       >
         <EmptyBalanceState />
       </BalanceCardShell>
     )
   }
 
+  const oldestVerifiedBalance = getOldestVerifiedBalance(routeBalances)
+
+  if (!oldestVerifiedBalance) return null
+
+  const freshnessStatus = getDisplayBalanceFreshnessStatus({
+    isRefreshFailed: refreshFailed,
+    isRefreshing: isFetching,
+    lastVerifiedAt: oldestVerifiedBalance.lastVerifiedAt,
+    nowMs,
+  })
+  const verification = `${formatRelativeFreshness(
+    oldestVerifiedBalance.lastVerifiedAt,
+    nowMs
+  )} from ${oldestVerifiedBalance.source}`
+
   return (
     <BalanceCardShell
       description="Per-location Paid Time Off balances from mock HCM."
       action={
-        <Badge
-          variant={
-            refreshFailed ? "destructive" : isFetching ? "outline" : "secondary"
-          }
-        >
-          {refreshFailed
-            ? "Refresh failed"
-            : isFetching
-              ? "Refreshing"
-              : "Batch hydrated"}
-        </Badge>
+        <BalanceFreshnessControl
+          canRefresh={!isFetching}
+          onRefresh={refreshBalances}
+          status={freshnessStatus}
+        />
       }
+      verification={verification}
     >
       <div className="space-y-4">
         {refreshFailed ? (
@@ -225,17 +316,24 @@ export function BalanceSummary({ employeeId }: BalanceSummaryProps) {
           />
         ) : null}
 
-        <div className="grid gap-3">
-          {routeBalances.map((balance) => (
-            <BalanceLocationRow
-              key={`${balance.employeeId}-${balance.locationId}-${balance.timeOffTypeId}`}
-              balance={balance}
-              isRefreshFailed={refreshFailed}
-              isRefreshing={isFetching}
-              nowMs={nowMs}
-            />
-          ))}
-        </div>
+        <Table aria-label="Employee balances">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="min-w-48">Location</TableHead>
+              <TableHead className="min-w-32 text-right">Available</TableHead>
+              <TableHead className="min-w-32 text-right">Pending</TableHead>
+              <TableHead className="min-w-32 text-right">Effective</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {routeBalances.map((balance) => (
+              <BalanceLocationRow
+                key={`${balance.employeeId}-${balance.locationId}-${balance.timeOffTypeId}`}
+                balance={balance}
+              />
+            ))}
+          </TableBody>
+        </Table>
       </div>
     </BalanceCardShell>
   )
@@ -245,10 +343,12 @@ function BalanceCardShell({
   action,
   children,
   description,
+  verification,
 }: Readonly<{
   action: ReactNode
   children: ReactNode
   description: string
+  verification: string
 }>) {
   return (
     <Card className="rounded-lg border border-border shadow-none">
@@ -262,80 +362,83 @@ function BalanceCardShell({
         <CardAction>{action}</CardAction>
       </CardHeader>
       <CardContent>{children}</CardContent>
+      <CardFooter className="justify-end bg-card text-[lab(38.8709_-8.38673_3.32724)]">
+        <p className="text-xs">{verification}</p>
+      </CardFooter>
     </Card>
+  )
+}
+
+function BalanceFreshnessControl({
+  canRefresh,
+  onRefresh,
+  status,
+}: Readonly<{
+  canRefresh: boolean
+  onRefresh: () => void
+  status: BalanceFreshnessStatus
+}>) {
+  const Icon = freshnessStatusIcon[status]
+  const label = formatBalanceFreshnessStatus(status)
+
+  return (
+    <div className="flex items-center gap-2">
+      <Badge variant={freshnessStatusVariant(status)} className="capitalize">
+        <Icon data-icon="inline-start" />
+        {label}
+      </Badge>
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="outline"
+        aria-label="Refresh balances"
+        title="Refresh balances"
+        onClick={onRefresh}
+        disabled={!canRefresh}
+      >
+        <RefreshCw aria-hidden="true" />
+      </Button>
+    </div>
   )
 }
 
 function BalanceLocationRow({
   balance,
-  isRefreshFailed,
-  isRefreshing,
-  nowMs,
 }: Readonly<{
   balance: BalanceCell
-  isRefreshFailed: boolean
-  isRefreshing: boolean
-  nowMs: number
 }>) {
   const isLowBalance =
     balance.effectiveAvailableDays <= LOW_BALANCE_THRESHOLD_DAYS
   const headingId = `${balance.employeeId}-${balance.locationId}-balance-heading`
-  const freshnessStatus = getDisplayBalanceFreshnessStatus({
-    isRefreshFailed,
-    isRefreshing,
-    lastVerifiedAt: balance.lastVerifiedAt,
-    nowMs,
-  })
 
   return (
-    <article
-      aria-labelledby={headingId}
-      className="rounded-lg border border-border bg-muted/40 p-3"
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <TableRow>
+      <TableCell className="font-medium">
         <div>
-          <h3 id={headingId} className="text-base font-semibold text-foreground">
+          <div id={headingId} className="font-semibold text-foreground">
             {balance.locationName}
-          </h3>
+          </div>
           <p className="text-sm text-muted-foreground">{balance.timeOffTypeName}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+      </TableCell>
+      <TableCell className="text-right font-semibold text-foreground">
+        <span className="inline-flex items-center justify-end gap-1.5">
           {isLowBalance ? (
-            <Badge variant="destructive">Low balance</Badge>
+            <TriangleAlert
+              className="size-4 text-warning-foreground"
+              aria-label="Low balance"
+            />
           ) : null}
-          <BalanceFreshnessIndicator
-            lastVerifiedAt={balance.lastVerifiedAt}
-            nowMs={nowMs}
-            source={balance.source}
-            status={freshnessStatus}
-          />
-        </div>
-      </div>
-
-      <dl className="mt-3 grid gap-2 sm:grid-cols-3">
-        <BalanceMetric label="Available" value={formatDays(balance.availableDays)} />
-        <BalanceMetric label="Pending" value={formatDays(balance.pendingDays)} />
-        <BalanceMetric
-          label="Effective"
-          value={formatDays(balance.effectiveAvailableDays)}
-        />
-      </dl>
-    </article>
-  )
-}
-
-function BalanceMetric({
-  label,
-  value,
-}: Readonly<{
-  label: string
-  value: string
-}>) {
-  return (
-    <div>
-      <dt className="text-xs font-medium uppercase text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-lg font-semibold text-foreground">{value}</dd>
-    </div>
+          {formatDays(balance.availableDays)}
+        </span>
+      </TableCell>
+      <TableCell className="text-right font-semibold text-foreground">
+        {formatDays(balance.pendingDays)}
+      </TableCell>
+      <TableCell className="text-right font-semibold text-foreground">
+        {formatDays(balance.effectiveAvailableDays)}
+      </TableCell>
+    </TableRow>
   )
 }
 

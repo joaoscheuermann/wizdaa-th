@@ -241,7 +241,7 @@ describe("RequestForm", () => {
       await screen.findByText("Only 0.5 effective days are available.")
     ).toBeInTheDocument()
 
-    const newYork = screen.getByRole("article", { name: /new york hq/i })
+    const newYork = screen.getByRole("row", { name: /new york hq/i })
 
     await waitFor(() =>
       expect(within(newYork).getAllByText("24.0 days")).toHaveLength(2)
@@ -521,7 +521,7 @@ describe("RequestForm", () => {
       await screen.findByText(/pending action remains visible/i)
     ).toBeInTheDocument()
 
-    const newYork = screen.getByRole("article", { name: /new york hq/i })
+    const newYork = screen.getByRole("row", { name: /new york hq/i })
 
     expect(within(newYork).getByText("29.0 days")).toBeInTheDocument()
     expect(within(newYork).getByText("1.0 days")).toBeInTheDocument()
