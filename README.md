@@ -85,6 +85,18 @@ npm run test:e2e
 npm run build
 ```
 
+Latest local verification snapshot, captured on 2026-04-28:
+
+| Command | Result | Coverage purpose |
+| --- | --- | --- |
+| `npm run typecheck` | Passed | TypeScript contracts for route users, HCM payloads, request statuses, stories, and query state. |
+| `npm run lint` | Passed | Static code-quality checks across the app, route handlers, tests, and Storybook stories. |
+| `npm run test` | Passed: 14 files, 65 tests | Unit, component, and mock HCM integration coverage for validation, freshness, scoped employee data, request submission, rollback, manager decisions, state API, and scenario behavior. |
+| `npm run test:storybook` | Passed: 11 files, 71 tests | Storybook interaction proof for employee submission, optimistic pending, rollback/retry, modal flows, manager approval/denial, HCM conflicts, and the explicit state matrix. |
+| `npm run test:e2e` | Passed: 2 browser tests | End-to-end happy path and retryable HCM write failure path through the running Next.js app. |
+| `npm run build` | Passed | Production Next.js build, route-handler compilation, and app route generation. |
+| `npm run build-storybook` | Passed | Static Storybook build for local reviewer inspection. |
+
 Coverage can be generated without enforcing an arbitrary gate:
 
 ```bash

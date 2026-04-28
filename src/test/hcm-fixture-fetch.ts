@@ -1,4 +1,8 @@
-import type { HcmStatePatch } from "@/domain/time-off/types"
+import type {
+  BalanceBatchResponse,
+  BalanceFreshnessStatus,
+  HcmStatePatch,
+} from "@/domain/time-off/types"
 import {
   decideTimeOffRequest,
   listEmployeeRequests,
@@ -17,13 +21,22 @@ import { getDemoUser } from "@/server/hcm/user-api"
 
 interface HcmFixtureFetchOptions {
   readonly statePatch?: HcmStatePatch
+  readonly batchFreshnessStatus?: Extract<
+    BalanceFreshnessStatus,
+    "fresh" | "stale" | "conflict"
+  >
+  readonly emptyBatch?: boolean
   readonly failBatch?: boolean
+  readonly failBatchAfterFirstSuccess?: boolean
   readonly failEmployeeRequests?: boolean
   readonly failFirstSubmit?: boolean
   readonly failFirstDecision?: boolean
   readonly failPendingRequests?: boolean
+  readonly holdBatch?: boolean
   readonly holdEmployeeRequests?: boolean
+  readonly holdPendingRequests?: boolean
   readonly delaySubmitMs?: number
+  readonly delayDecisionMs?: number
 }
 
 const jsonResponse = (body: unknown, status = 200) =>
@@ -53,17 +66,45 @@ const delay = (milliseconds: number) =>
 const parseUrl = (input: RequestInfo | URL) =>
   new URL(input.toString(), "http://storybook.local")
 
+const applyBatchFreshness = (
+  response: BalanceBatchResponse,
+  status: HcmFixtureFetchOptions["batchFreshnessStatus"]
+): BalanceBatchResponse => {
+  if (!status || status === "fresh") return response
+
+  const lastVerifiedAt =
+    status === "stale"
+      ? "2026-04-28T11:00:00.000Z"
+      : response.fetchedAt
+
+  return {
+    ...response,
+    balances: response.balances.map((balance) => ({
+      ...balance,
+      freshnessStatus: status,
+      lastVerifiedAt,
+    })),
+  }
+}
+
 export const installHcmFixtureFetch = ({
+  batchFreshnessStatus = "fresh",
+  delayDecisionMs = 0,
   delaySubmitMs = 0,
+  emptyBatch = false,
   failBatch = false,
+  failBatchAfterFirstSuccess = false,
   failEmployeeRequests = false,
   failFirstDecision = false,
   failFirstSubmit = false,
   failPendingRequests = false,
+  holdBatch = false,
   holdEmployeeRequests = false,
+  holdPendingRequests = false,
   statePatch,
 }: HcmFixtureFetchOptions = {}) => {
   const previousFetch = globalThis.fetch
+  let batchAttempts = 0
   let submitAttempts = 0
   let decisionAttempts = 0
 
@@ -75,7 +116,13 @@ export const installHcmFixtureFetch = ({
     const method = init?.method?.toUpperCase() ?? "GET"
 
     if (url.pathname === "/api/hcm/balances/batch" && method === "GET") {
-      if (failBatch) {
+      batchAttempts += 1
+
+      if (holdBatch) {
+        return new Promise<Response>(() => {})
+      }
+
+      if (failBatch || (failBatchAfterFirstSuccess && batchAttempts > 1)) {
         return jsonResponse(
           {
             error: {
@@ -87,7 +134,16 @@ export const installHcmFixtureFetch = ({
         )
       }
 
-      return jsonResponse(getBalanceBatch())
+      if (emptyBatch) {
+        return jsonResponse({
+          balances: [],
+          fetchedAt: new Date().toISOString(),
+        } satisfies BalanceBatchResponse)
+      }
+
+      return jsonResponse(
+        applyBatchFreshness(getBalanceBatch(), batchFreshnessStatus)
+      )
     }
 
     if (url.pathname.startsWith("/api/hcm/users/") && method === "GET") {
@@ -129,6 +185,10 @@ export const installHcmFixtureFetch = ({
       const status = url.searchParams.get("status")
 
       if (status === "pending") {
+        if (holdPendingRequests) {
+          return new Promise<Response>(() => {})
+        }
+
         if (failPendingRequests) {
           return jsonResponse(
             {
@@ -199,6 +259,8 @@ export const installHcmFixtureFetch = ({
       method === "PATCH"
     ) {
       decisionAttempts += 1
+
+      if (delayDecisionMs > 0) await delay(delayDecisionMs)
 
       if (failFirstDecision && decisionAttempts === 1) {
         return retryableWriteFailure(

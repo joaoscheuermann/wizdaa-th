@@ -12,7 +12,25 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-export const Default: Story = {}
+export const Loading: Story = {
+  parameters: {
+    hcm: {
+      holdBatch: true,
+    },
+  },
+}
+
+export const Empty: Story = {
+  parameters: {
+    hcm: {
+      emptyBatch: true,
+    },
+  },
+}
+
+export const WithBalances: Story = {}
+
+export const Default = WithBalances
 
 export const Error: Story = {
   parameters: {

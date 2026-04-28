@@ -58,7 +58,11 @@ export const DenyFromModal: Story = {
     const dialog = await getOpenDialog(canvasElement.ownerDocument)
     const denialReason = await within(dialog).findByLabelText("Denial reason")
 
-    await userEvent.type(denialReason, "Coverage gap during launch week")
+    await userEvent.click(denialReason)
+    await userEvent.paste("Coverage gap during launch week")
+    await waitFor(() =>
+      expect(denialReason).toHaveValue("Coverage gap during launch week")
+    )
     await userEvent.click(within(dialog).getByRole("button", { name: /deny/i }))
 
     await waitFor(() =>

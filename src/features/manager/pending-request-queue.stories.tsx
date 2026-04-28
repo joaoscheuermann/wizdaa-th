@@ -17,7 +17,17 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-export const Default: Story = {}
+export const Loading: Story = {
+  parameters: {
+    hcm: {
+      holdPendingRequests: true,
+    },
+  },
+}
+
+export const WithPendingRequests: Story = {}
+
+export const Default = WithPendingRequests
 
 export const Empty: Story = {
   parameters: {

@@ -16,9 +16,118 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-export const Default: Story = {
+export const Loading: Story = {
   args: {
     employeeId: "emp-avery",
+  },
+  parameters: {
+    hcm: {
+      holdBatch: true,
+    },
+  },
+}
+
+export const Empty: Story = {
+  args: {
+    employeeId: "emp-avery",
+  },
+  parameters: {
+    hcm: {
+      emptyBatch: true,
+    },
+  },
+}
+
+export const Fresh: Story = {
+  args: {
+    employeeId: "emp-avery",
+  },
+}
+
+export const Default = Fresh
+
+export const Stale: Story = {
+  args: {
+    employeeId: "emp-avery",
+  },
+  parameters: {
+    hcm: {
+      batchFreshnessStatus: "stale",
+    },
+  },
+}
+
+export const Refreshing: Story = {
+  args: {
+    employeeId: "emp-avery",
+  },
+}
+
+export const RefreshFailed: Story = {
+  args: {
+    employeeId: "emp-avery",
+  },
+  parameters: {
+    hcm: {
+      failBatchAfterFirstSuccess: true,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /refresh balances/i })
+    )
+    await expect(await canvas.findByRole("status")).toHaveTextContent(
+      "Balance refresh failed"
+    )
+  },
+}
+
+function BalanceRefreshHarness() {
+  const queryClient = useQueryClient()
+  const didPatch = useRef(false)
+
+  useEffect(() => {
+    if (didPatch.current) return
+
+    didPatch.current = true
+    window.setTimeout(() => {
+      void fetch("/api/hcm/state", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          balances: [
+            {
+              employeeId: "emp-avery",
+              locationId: "loc-nyc",
+              timeOffTypeId: "pto",
+              availableDays: 29,
+            },
+          ],
+        }),
+      }).then(() =>
+        queryClient.invalidateQueries({ queryKey: queryKeys.balances.batch })
+      )
+    }, 50)
+  }, [queryClient])
+
+  return <BalanceSummary employeeId="emp-avery" />
+}
+
+export const BalanceRefreshedMidSession: Story = {
+  args: {
+    employeeId: "emp-avery",
+  },
+  render: () => <BalanceRefreshHarness />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(
+      await canvas.findByText(/Refreshed balance: New York HQ/i)
+    ).toBeInTheDocument()
   },
 }
 

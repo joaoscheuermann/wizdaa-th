@@ -4,6 +4,7 @@ import { expect, userEvent, waitFor, within } from "storybook/test"
 import { BalanceSummary } from "@/features/employee/balance-summary"
 import { RequestForm } from "@/features/employee/request-form"
 import { RequestedPtoTable } from "@/features/employee/requested-pto-table"
+import { silentWrongSuccessRequest } from "@/test/time-off-fixtures"
 
 const meta = {
   title: "Time Off/RequestForm",
@@ -17,7 +18,26 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-export const Default: Story = {}
+export const EmptyDraft: Story = {}
+
+export const Default = EmptyDraft
+
+export const ValidationErrors: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const startDate = await canvas.findByLabelText("Start date")
+    const submitButton = await canvas.findByRole("button", {
+      name: /submit request/i,
+    })
+
+    await userEvent.clear(startDate)
+    await userEvent.click(submitButton)
+
+    await expect(
+      await canvas.findByText("Start date must be a valid local date.")
+    ).toBeInTheDocument()
+  },
+}
 
 export const EmployeeSubmit: Story = {
   play: async ({ canvasElement }) => {
@@ -101,6 +121,83 @@ export const Rollback: Story = {
   },
 }
 
+export const OptimisticRolledBack = Rollback
+
+export const HcmRejectedInsufficientBalance: Story = {
+  parameters: {
+    hcm: {
+      statePatch: {
+        scenario: {
+          mode: "insufficient_balance",
+          updatedAt: "2026-04-28T13:25:00.000Z",
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const submitButton = await canvas.findByRole("button", {
+      name: /submit request/i,
+    })
+
+    await waitFor(() => expect(submitButton).toBeEnabled())
+    await userEvent.click(submitButton)
+
+    await expect(
+      await canvas.findByText(/effective days are available/i)
+    ).toBeInTheDocument()
+  },
+}
+
+export const HcmRejectedInvalidDimension: Story = {
+  parameters: {
+    hcm: {
+      statePatch: {
+        scenario: {
+          mode: "invalid_dimension",
+          updatedAt: "2026-04-28T13:30:00.000Z",
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const submitButton = await canvas.findByRole("button", {
+      name: /submit request/i,
+    })
+
+    await waitFor(() => expect(submitButton).toBeEnabled())
+    await userEvent.click(submitButton)
+
+    await expect(
+      await canvas.findByText(/employee, location, or time-off type is unavailable/i)
+    ).toBeInTheDocument()
+  },
+}
+
+export const HcmSilentlyWrong: Story = {
+  parameters: {
+    hcm: {
+      statePatch: {
+        requests: [silentWrongSuccessRequest],
+      },
+    },
+  },
+  render: (args) => (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <RequestForm {...args} />
+      <RequestedPtoTable employeeId="emp-avery" />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(
+      await canvas.findByText(/accepted the request response but later contradicted/i)
+    ).toBeInTheDocument()
+  },
+}
+
 export const RetryAfterSilentFailure: Story = {
   parameters: {
     hcm: {
@@ -125,3 +222,5 @@ export const RetryAfterSilentFailure: Story = {
     await expect(note).toHaveValue("")
   },
 }
+
+export const RetryableSilentFailure = RetryAfterSilentFailure

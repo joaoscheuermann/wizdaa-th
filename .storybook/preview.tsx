@@ -7,13 +7,19 @@ import type { HcmStatePatch } from "@/domain/time-off/types"
 import { installHcmFixtureFetch } from "@/test/hcm-fixture-fetch"
 
 interface HcmStoryParameters {
+  readonly batchFreshnessStatus?: "fresh" | "stale" | "conflict"
+  readonly delayDecisionMs?: number
   readonly delaySubmitMs?: number
+  readonly emptyBatch?: boolean
   readonly failBatch?: boolean
+  readonly failBatchAfterFirstSuccess?: boolean
   readonly failEmployeeRequests?: boolean
   readonly failFirstDecision?: boolean
   readonly failFirstSubmit?: boolean
   readonly failPendingRequests?: boolean
+  readonly holdBatch?: boolean
   readonly holdEmployeeRequests?: boolean
+  readonly holdPendingRequests?: boolean
   readonly statePatch?: HcmStatePatch
 }
 

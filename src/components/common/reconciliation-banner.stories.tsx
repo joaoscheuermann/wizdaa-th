@@ -25,6 +25,8 @@ export const Success: Story = {
   },
 }
 
+export const BalanceChanged = Success
+
 export const Warning: Story = {
   args: {
     message:
@@ -39,3 +41,5 @@ export const Warning: Story = {
     )
   },
 }
+
+export const InFlightActionConflict = Warning

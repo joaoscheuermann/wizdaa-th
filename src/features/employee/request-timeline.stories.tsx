@@ -2,7 +2,13 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, within } from "storybook/test"
 
 import { RequestTimeline } from "@/features/employee/request-timeline"
-import { syncFailedRetryableRequest } from "@/test/time-off-fixtures"
+import {
+  approvedRequest,
+  conflictReviewRequest,
+  deniedRequest,
+  seededPendingRequest,
+  syncFailedRetryableRequest,
+} from "@/test/time-off-fixtures"
 
 const meta = {
   title: "Time Off/RequestTimeline",
@@ -16,7 +22,39 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-export const Default: Story = {}
+export const PendingManagerReview: Story = {}
+
+export const Default = PendingManagerReview
+
+export const Approved: Story = {
+  parameters: {
+    hcm: {
+      statePatch: {
+        requests: [approvedRequest],
+      },
+    },
+  },
+}
+
+export const Denied: Story = {
+  parameters: {
+    hcm: {
+      statePatch: {
+        requests: [deniedRequest],
+      },
+    },
+  },
+}
+
+export const ConflictNeedsReview: Story = {
+  parameters: {
+    hcm: {
+      statePatch: {
+        requests: [conflictReviewRequest],
+      },
+    },
+  },
+}
 
 export const SyncFailedRetryable: Story = {
   args: {
@@ -25,7 +63,7 @@ export const SyncFailedRetryable: Story = {
   parameters: {
     hcm: {
       statePatch: {
-        requests: [syncFailedRetryableRequest],
+        requests: [seededPendingRequest, syncFailedRetryableRequest],
       },
     },
   },

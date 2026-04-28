@@ -47,7 +47,7 @@ export const OpenDraft: Story = {
   },
 }
 
-export const SubmitClosesModal: Story = {
+export const SubmitFromModal: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement.ownerDocument.body)
 
@@ -63,8 +63,10 @@ export const SubmitClosesModal: Story = {
     await waitFor(() => expect(submitButton).toBeEnabled())
     await userEvent.click(submitButton)
 
-    await waitFor(() =>
-      expect(dialog.isConnected && dialog.hasAttribute("data-open")).toBe(false)
-    )
+    await expect(
+      await within(dialog).findByText(
+        "New York HQ request is pending manager review."
+      )
+    ).toBeInTheDocument()
   },
 }
