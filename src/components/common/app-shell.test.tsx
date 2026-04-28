@@ -42,6 +42,8 @@ describe("AppShell", () => {
     expect(
       screen.getByRole("button", { name: "Request PTO" })
     ).toBeInTheDocument()
+    expect(screen.getByLabelText("Avery Stone, Employee")).toBeInTheDocument()
+    expect(screen.getByText("AS")).toBeInTheDocument()
     expect(screen.getAllByText("Avery Stone").length).toBeGreaterThan(0)
     expect(await screen.findByText("No requested PTO yet.")).toBeInTheDocument()
     expect(
@@ -68,6 +70,8 @@ describe("AppShell", () => {
     expect(
       await screen.findByRole("heading", { name: "Manager workspace" })
     ).toBeInTheDocument()
+    expect(screen.getByLabelText("Morgan Patel, Manager")).toBeInTheDocument()
+    expect(screen.getByText("MP")).toBeInTheDocument()
     expect(screen.getByText("Morgan Patel")).toBeInTheDocument()
     expect(
       screen.getByRole("heading", { name: "All employee balances" })

@@ -1,32 +1,78 @@
 "use client"
 
-import { AlertCircle, Inbox } from "lucide-react"
-import { useMemo } from "react"
+import { useIsMutating } from "@tanstack/react-query"
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock3,
+  Inbox,
+  RefreshCw,
+  TriangleAlert,
+  type LucideIcon,
+} from "lucide-react"
+import type { ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
-import { BalanceFreshnessIndicator } from "@/components/common/balance-freshness-indicator"
+import { ReconciliationBanner } from "@/components/common/reconciliation-banner"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { LOW_BALANCE_THRESHOLD_DAYS } from "@/domain/time-off/constants"
-import { getDisplayBalanceFreshnessStatus } from "@/domain/time-off/freshness"
-import type { BalanceCell } from "@/domain/time-off/types"
+import {
+  formatBalanceFreshnessStatus,
+  formatRelativeFreshness,
+  getDisplayBalanceFreshnessStatus,
+} from "@/domain/time-off/freshness"
+import {
+  getReconciledBalanceChanges,
+  type ReconciledBalanceChange,
+} from "@/domain/time-off/reconciliation"
+import type {
+  BalanceBatchResponse,
+  BalanceCell,
+  BalanceFreshnessStatus,
+} from "@/domain/time-off/types"
 import { useBalanceBatchQuery } from "@/lib/queries/balance-queries"
 
 const formatDays = (days: number) => `${days.toFixed(1)} days`
 
-const formatVerifiedAt = (isoDate: string) =>
-  new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    month: "short",
-  }).format(new Date(isoDate))
+interface ReconciliationNotice {
+  readonly message: string
+  readonly tone: "success" | "warning"
+}
+
+const freshnessStatusIcon: Record<BalanceFreshnessStatus, LucideIcon> = {
+  loading: Clock3,
+  fresh: CheckCircle2,
+  refreshing: RefreshCw,
+  stale: Clock3,
+  refresh_failed: AlertCircle,
+  conflict: AlertCircle,
+  error: AlertCircle,
+}
+
+const freshnessStatusVariant = (status: BalanceFreshnessStatus) => {
+  if (status === "refresh_failed" || status === "error") return "destructive"
+  if (status === "stale" || status === "refreshing") return "outline"
+
+  return "secondary"
+}
 
 const sortBalances = (balances: readonly BalanceCell[]) =>
   [...balances].sort((first, second) => {
@@ -39,6 +85,62 @@ const sortBalances = (balances: readonly BalanceCell[]) =>
     return first.locationName.localeCompare(second.locationName)
   })
 
+const getOldestVerifiedBalance = (balances: readonly BalanceCell[]) =>
+  balances.reduce<BalanceCell | undefined>((oldest, balance) => {
+    if (!oldest) return balance
+
+    const oldestMs = Date.parse(oldest.lastVerifiedAt)
+    const candidateMs = Date.parse(balance.lastVerifiedAt)
+
+    if (Number.isNaN(candidateMs)) return balance
+    if (Number.isNaN(oldestMs)) return oldest
+
+    return candidateMs < oldestMs ? balance : oldest
+  }, undefined)
+
+const formatBalanceChangeMessage = (
+  changes: readonly ReconciledBalanceChange[],
+  hasActionInFlight: boolean
+): ReconciliationNotice => {
+  if (hasActionInFlight) {
+    return {
+      message:
+        "Balance changed while a request action is pending. The pending action remains visible.",
+      tone: "warning",
+    }
+  }
+
+  if (changes.length === 1) {
+    const change = changes[0]
+
+    return {
+      message: `Refreshed balance: ${change.current.employeeName} ${change.current.locationName} now shows ${formatDays(
+        change.current.availableDays
+      )} available and ${formatDays(change.current.pendingDays)} pending.`,
+      tone: "success",
+    }
+  }
+
+  return {
+    message: `Refreshed ${changes.length} employee balances from HCM.`,
+    tone: "success",
+  }
+}
+
+const useFreshnessClock = () => {
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNowMs(Date.now())
+    }, 1_000)
+
+    return () => window.clearInterval(intervalId)
+  }, [])
+
+  return nowMs
+}
+
 export function AllEmployeeBalancesTable() {
   const {
     data,
@@ -47,15 +149,146 @@ export function AllEmployeeBalancesTable() {
     isFetching,
     isLoading,
     isRefetchError,
+    refetch,
   } =
     useBalanceBatchQuery()
+  const nowMs = useFreshnessClock()
+  const activeMutations = useIsMutating()
+  const previousBatchRef = useRef<BalanceBatchResponse | null>(null)
+  const [notice, setNotice] = useState<ReconciliationNotice | null>(null)
   const rows = useMemo(
     () => sortBalances(data?.balances ?? []),
     [data?.balances]
   )
   const refreshFailed = Boolean(data && isRefetchError)
-  const fetchedAtMs = data ? Date.parse(data.fetchedAt) : 0
+  const refreshBalances = () => {
+    void refetch()
+  }
 
+  useEffect(() => {
+    if (!data) return
+
+    const previousBatch = previousBatchRef.current
+    previousBatchRef.current = data
+
+    if (!previousBatch) return
+
+    const changes = getReconciledBalanceChanges(previousBatch, data)
+
+    if (changes.length === 0) return
+
+    setNotice(formatBalanceChangeMessage(changes, activeMutations > 0))
+  }, [activeMutations, data])
+
+  if (isLoading) {
+    return (
+      <AllEmployeeBalancesShell
+        description="Hydrating the batch corpus from mock HCM."
+        action={
+          <BalanceFreshnessControl
+            canRefresh={!isFetching}
+            onRefresh={refreshBalances}
+            status="loading"
+          />
+        }
+        verification="Verification pending"
+      >
+        <AllEmployeeBalancesLoading />
+      </AllEmployeeBalancesShell>
+    )
+  }
+
+  if (isError && !data) {
+    return (
+      <AllEmployeeBalancesShell
+        description="The HCM batch endpoint did not return balances."
+        action={
+          <BalanceFreshnessControl
+            canRefresh={!isFetching}
+            onRefresh={refreshBalances}
+            status="error"
+          />
+        }
+        verification="Verification unavailable"
+      >
+        <AllEmployeeBalancesError error={error} />
+      </AllEmployeeBalancesShell>
+    )
+  }
+
+  if (!data || rows.length === 0) {
+    return (
+      <AllEmployeeBalancesShell
+        description="No balance rows were returned by HCM."
+        action={
+          <BalanceFreshnessControl
+            canRefresh={!isFetching}
+            onRefresh={refreshBalances}
+            status="error"
+          />
+        }
+        verification="Verification unavailable"
+      >
+        <AllEmployeeBalancesEmpty />
+      </AllEmployeeBalancesShell>
+    )
+  }
+
+  const oldestVerifiedBalance = getOldestVerifiedBalance(rows)
+
+  if (!oldestVerifiedBalance) return null
+
+  const freshnessStatus = getDisplayBalanceFreshnessStatus({
+    isRefreshFailed: refreshFailed,
+    isRefreshing: isFetching,
+    lastVerifiedAt: oldestVerifiedBalance.lastVerifiedAt,
+    nowMs,
+  })
+  const verification = `${formatRelativeFreshness(
+    oldestVerifiedBalance.lastVerifiedAt,
+    nowMs
+  )} from ${oldestVerifiedBalance.source}`
+
+  return (
+    <AllEmployeeBalancesShell
+      description="Manager-visible HCM balance corpus across employees and locations."
+      action={
+        <BalanceFreshnessControl
+          canRefresh={!isFetching}
+          onRefresh={refreshBalances}
+          status={freshnessStatus}
+        />
+      }
+      verification={verification}
+    >
+      <div className="space-y-4">
+        {refreshFailed ? (
+          <ReconciliationBanner
+            message="Balance refresh failed. Last known values remain visible until HCM responds."
+            tone="warning"
+          />
+        ) : null}
+        {!refreshFailed && notice ? (
+          <ReconciliationBanner message={notice.message} tone={notice.tone} />
+        ) : null}
+
+        <AllEmployeeBalancesRows rows={rows} />
+      </div>
+    </AllEmployeeBalancesShell>
+  )
+}
+
+function AllEmployeeBalancesShell({
+  action,
+  children,
+  description,
+  verification,
+}: Readonly<{
+  action: ReactNode
+  children: ReactNode
+  description: string
+  verification: string
+}>) {
   return (
     <Card className="h-fit rounded-lg border border-border shadow-none">
       <CardHeader>
@@ -63,144 +296,120 @@ export function AllEmployeeBalancesTable() {
           <CardTitle>
             <h2>All employee balances</h2>
           </CardTitle>
-          <CardDescription>
-            Manager-visible HCM balance corpus across employees and locations.
-          </CardDescription>
+          <CardDescription>{description}</CardDescription>
         </div>
-        <CardAction>
-          <Badge
-            variant={
-              refreshFailed ? "destructive" : isFetching ? "outline" : "secondary"
-            }
-          >
-            {isLoading
-              ? "Loading"
-              : refreshFailed
-                ? "Refresh failed"
-                : isFetching
-                  ? "Refreshing"
-                  : `${rows.length} cells`}
-          </Badge>
-        </CardAction>
+        <CardAction>{action}</CardAction>
       </CardHeader>
-      <CardContent className="min-w-0">
-        {isLoading ? <AllEmployeeBalancesLoading /> : null}
-        {isError && !data ? <AllEmployeeBalancesError error={error} /> : null}
-        {!isLoading && !isError && rows.length === 0 ? (
-          <AllEmployeeBalancesEmpty />
-        ) : null}
-        {rows.length > 0 ? (
-          <AllEmployeeBalancesRows
-            isRefreshFailed={refreshFailed}
-            isRefreshing={isFetching}
-            nowMs={fetchedAtMs}
-            rows={rows}
-          />
-        ) : null}
-      </CardContent>
+      <CardContent className="min-w-0">{children}</CardContent>
+      <CardFooter className="justify-end bg-card text-[lab(38.8709_-8.38673_3.32724)]">
+        <p className="text-xs">{verification}</p>
+      </CardFooter>
     </Card>
   )
 }
 
-function AllEmployeeBalancesRows({
-  isRefreshFailed,
-  isRefreshing,
-  nowMs,
-  rows,
+function BalanceFreshnessControl({
+  canRefresh,
+  onRefresh,
+  status,
 }: Readonly<{
-  isRefreshFailed: boolean
-  isRefreshing: boolean
-  nowMs: number
-  rows: readonly BalanceCell[]
+  canRefresh: boolean
+  onRefresh: () => void
+  status: BalanceFreshnessStatus
 }>) {
-  return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      <table
-        aria-label="All employee balances"
-        className="w-full min-w-[54rem] border-collapse text-left text-sm"
-      >
-        <thead className="bg-muted/40 text-xs font-medium uppercase text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2" scope="col">
-              Employee
-            </th>
-            <th className="px-3 py-2" scope="col">
-              Available
-            </th>
-            <th className="px-3 py-2" scope="col">
-              Pending
-            </th>
-            <th className="px-3 py-2" scope="col">
-              Effective
-            </th>
-            <th className="px-3 py-2" scope="col">
-              Freshness
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border bg-card">
-          {rows.map((balance) => {
-            const isLowBalance =
-              balance.effectiveAvailableDays <= LOW_BALANCE_THRESHOLD_DAYS
-            const freshnessStatus = getDisplayBalanceFreshnessStatus({
-              isRefreshFailed,
-              isRefreshing,
-              lastVerifiedAt: balance.lastVerifiedAt,
-              nowMs,
-            })
+  const Icon = freshnessStatusIcon[status]
+  const label = formatBalanceFreshnessStatus(status)
 
-            return (
-              <tr
-                key={`${balance.employeeId}-${balance.locationId}-${balance.timeOffTypeId}`}
-              >
-                <td className="max-w-72 px-3 py-3 align-top">
-                  <div className="font-medium text-foreground">
-                    {balance.employeeName}
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {balance.locationName} - {balance.timeOffTypeName}
-                  </div>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    Verified {formatVerifiedAt(balance.lastVerifiedAt)}
-                  </div>
-                </td>
-                <BalanceValueCell value={formatDays(balance.availableDays)} />
-                <BalanceValueCell value={formatDays(balance.pendingDays)} />
-                <td className="px-3 py-3 align-top">
-                  <div className="font-semibold text-foreground">
-                    {formatDays(balance.effectiveAvailableDays)}
-                  </div>
-                  {isLowBalance ? (
-                    <Badge variant="destructive" className="mt-2">
-                      Low balance
-                    </Badge>
-                  ) : null}
-                </td>
-                <td className="px-3 py-3 align-top">
-                  <BalanceFreshnessIndicator
-                    lastVerifiedAt={balance.lastVerifiedAt}
-                    nowMs={nowMs}
-                    source={balance.source}
-                    status={freshnessStatus}
-                  />
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    Version {balance.version}
-                  </div>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+  return (
+    <div className="flex items-center gap-2">
+      <Badge variant={freshnessStatusVariant(status)} className="capitalize">
+        <Icon data-icon="inline-start" />
+        {label}
+      </Badge>
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="outline"
+        aria-label="Refresh balances"
+        title="Refresh balances"
+        onClick={onRefresh}
+        disabled={!canRefresh}
+      >
+        <RefreshCw aria-hidden="true" />
+      </Button>
     </div>
   )
 }
 
-function BalanceValueCell({ value }: Readonly<{ value: string }>) {
+function AllEmployeeBalancesRows({
+  rows,
+}: Readonly<{
+  rows: readonly BalanceCell[]
+}>) {
   return (
-    <td className="px-3 py-3 align-top font-semibold text-foreground">
-      {value}
-    </td>
+    <Table aria-label="All employee balances">
+      <TableHeader>
+        <TableRow>
+          <TableHead className="min-w-44">Employee</TableHead>
+          <TableHead className="min-w-48">Location</TableHead>
+          <TableHead className="min-w-32 text-right">Available</TableHead>
+          <TableHead className="min-w-32 text-right">Pending</TableHead>
+          <TableHead className="min-w-32 text-right">Effective</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((balance) => (
+          <AllEmployeeBalanceRow
+            key={`${balance.employeeId}-${balance.locationId}-${balance.timeOffTypeId}`}
+            balance={balance}
+          />
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
+function AllEmployeeBalanceRow({
+  balance,
+}: Readonly<{
+  balance: BalanceCell
+}>) {
+  const isLowBalance =
+    balance.effectiveAvailableDays <= LOW_BALANCE_THRESHOLD_DAYS
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium">
+        <div className="font-semibold text-foreground">
+          {balance.employeeName}
+        </div>
+      </TableCell>
+      <TableCell className="font-medium">
+        <div>
+          <div className="font-semibold text-foreground">
+            {balance.locationName}
+          </div>
+          <p className="text-sm text-muted-foreground">{balance.timeOffTypeName}</p>
+        </div>
+      </TableCell>
+      <TableCell className="text-right font-semibold text-foreground">
+        <span className="inline-flex items-center justify-end gap-1.5">
+          {isLowBalance ? (
+            <TriangleAlert
+              className="size-4 text-warning-foreground"
+              aria-label="Low balance"
+            />
+          ) : null}
+          {formatDays(balance.availableDays)}
+        </span>
+      </TableCell>
+      <TableCell className="text-right font-semibold text-foreground">
+        {formatDays(balance.pendingDays)}
+      </TableCell>
+      <TableCell className="text-right font-semibold text-foreground">
+        {formatDays(balance.effectiveAvailableDays)}
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -210,14 +419,18 @@ function AllEmployeeBalancesLoading() {
       {[0, 1, 2, 3].map((item) => (
         <div
           key={item}
-          className="grid min-h-16 grid-cols-[1.5fr_0.8fr_0.8fr] gap-3 rounded-lg border border-border bg-muted/40 p-3"
+          className="grid min-h-16 gap-3 rounded-lg border border-border bg-muted/40 p-3 sm:grid-cols-[1.2fr_1.3fr_0.8fr_0.8fr_0.8fr]"
         >
           <div>
             <div className="h-3 w-32 rounded bg-muted" />
+          </div>
+          <div>
+            <div className="h-3 w-28 rounded bg-muted" />
             <div className="mt-2 h-3 w-24 rounded bg-secondary" />
           </div>
-          <div className="h-4 w-20 rounded bg-muted" />
-          <div className="h-5 w-28 rounded bg-secondary" />
+          <div className="h-4 w-20 rounded bg-muted sm:justify-self-end" />
+          <div className="h-4 w-20 rounded bg-muted sm:justify-self-end" />
+          <div className="h-5 w-24 rounded bg-secondary sm:justify-self-end" />
         </div>
       ))}
     </div>

@@ -1,22 +1,9 @@
 "use client"
 
-import {
-  AlertCircle,
-  CalendarClock,
-  Clock3,
-  RefreshCcw,
-  UserRound,
-  UsersRound,
-  type LucideIcon,
-} from "lucide-react"
+import { AlertCircle } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { Badge } from "@/components/ui/badge"
-import {
-  BALANCE_FRESHNESS_THRESHOLD_MS,
-  DEMO_TIME_ZONE,
-  HCM_WRITE_TIMEOUT_MS,
-} from "@/domain/time-off/constants"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import type { DemoUser } from "@/domain/time-off/types"
 import { BalanceSummary } from "@/features/employee/balance-summary"
 import { RequestPtoModal } from "@/features/employee/request-pto-modal"
@@ -29,24 +16,27 @@ const routeRoleMetadata = {
   employee: {
     label: "Employee",
     description: "View balances and draft requests",
-    icon: UserRound,
   },
   manager: {
     label: "Manager",
     description: "Review pending requests",
-    icon: UsersRound,
   },
 } satisfies Record<
   DemoUser["role"],
   {
     readonly label: string
     readonly description: string
-    readonly icon: LucideIcon
   }
 >
 
-const formatSeconds = (milliseconds: number) =>
-  `${Math.round(milliseconds / 1_000)}s`
+const getUserInitials = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((namePart) => namePart.charAt(0).toUpperCase())
+    .join("")
 
 interface AppShellProps {
   readonly routeUserId: string
@@ -61,7 +51,6 @@ export function AppShell({ routeUserId }: AppShellProps) {
     return (
       <ShellFrame
         description="The requested seeded user cannot be found."
-        identityBadges={<Badge variant="destructive">Invalid user</Badge>}
       >
         <InvalidUserState routeUserId={normalizedRouteUserId} />
       </ShellFrame>
@@ -72,9 +61,6 @@ export function AppShell({ routeUserId }: AppShellProps) {
     return (
       <ShellFrame
         description="Resolving the route user before opening a workspace."
-        identityBadges={
-          <Badge variant="outline">Resolving {normalizedRouteUserId}</Badge>
-        }
       >
         <RouteUserLoading routeUserId={normalizedRouteUserId} />
       </ShellFrame>
@@ -85,7 +71,6 @@ export function AppShell({ routeUserId }: AppShellProps) {
     return (
       <ShellFrame
         description="The requested seeded user cannot be found."
-        identityBadges={<Badge variant="destructive">Invalid user</Badge>}
       >
         <InvalidUserState
           error={routeUserQuery.error}
@@ -96,19 +81,15 @@ export function AppShell({ routeUserId }: AppShellProps) {
   }
 
   const roleMetadata = routeRoleMetadata[routeUser.role]
-  const RoleIcon = roleMetadata.icon
 
   return (
     <ShellFrame
       description={roleMetadata.description}
-      identityBadges={
-        <>
-          <Badge variant="secondary">{routeUser.name}</Badge>
-          <Badge variant="outline">
-            <RoleIcon data-icon="inline-start" />
-            {roleMetadata.label}
-          </Badge>
-        </>
+      userSummary={
+        <HeaderUserSummary
+          name={routeUser.name}
+          roleLabel={roleMetadata.label}
+        />
       }
     >
       {routeUser.role === "manager" ? (
@@ -123,23 +104,17 @@ export function AppShell({ routeUserId }: AppShellProps) {
 function ShellFrame({
   children,
   description,
-  identityBadges,
+  userSummary,
 }: Readonly<{
   children: ReactNode
   description: string
-  identityBadges: ReactNode
+  userSummary?: ReactNode
 }>) {
   return (
     <main className="min-h-dvh bg-background text-foreground">
       <div className="mx-auto flex min-h-dvh w-full max-w-[92rem] flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
+        <header className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="border-primary/40 bg-card">
-                ExampleHR
-              </Badge>
-              {identityBadges}
-            </div>
             <div className="space-y-2">
               <h1 className="text-3xl font-semibold tracking-normal sm:text-4xl">
                 ExampleHR Time-Off
@@ -150,23 +125,7 @@ function ShellFrame({
             </div>
           </div>
 
-          <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-3 lg:min-w-[34rem]">
-            <StatusPill
-              icon={CalendarClock}
-              label="Demo timezone"
-              value={DEMO_TIME_ZONE}
-            />
-            <StatusPill
-              icon={RefreshCcw}
-              label="Freshness"
-              value={formatSeconds(BALANCE_FRESHNESS_THRESHOLD_MS)}
-            />
-            <StatusPill
-              icon={Clock3}
-              label="Write timeout"
-              value={formatSeconds(HCM_WRITE_TIMEOUT_MS)}
-            />
-          </div>
+          {userSummary}
         </header>
 
         {children}
@@ -175,24 +134,24 @@ function ShellFrame({
   )
 }
 
-function StatusPill({
-  icon: Icon,
-  label,
-  value,
+function HeaderUserSummary({
+  name,
+  roleLabel,
 }: Readonly<{
-  icon: LucideIcon
-  label: string
-  value: string
+  name: string
+  roleLabel: string
 }>) {
   return (
-    <div className="flex min-h-16 items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
-      <Icon className="size-4 text-primary" aria-hidden="true" />
-      <div>
-        <div className="text-xs font-medium uppercase text-muted-foreground">
-          {label}
-        </div>
-        <div className="font-medium text-foreground">{value}</div>
+    <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
+      <div className="text-right leading-none">
+        <div className="text-sm font-medium text-foreground">{name}</div>
+        <div className="text-xs text-muted-foreground">{roleLabel}</div>
       </div>
+      <Avatar aria-label={`${name}, ${roleLabel}`}>
+        <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
+          {getUserInitials(name)}
+        </AvatarFallback>
+      </Avatar>
     </div>
   )
 }
@@ -282,12 +241,12 @@ function ManagerPanel({
   routeUser: DemoUser
 }>) {
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-5">
       <ManagerWorkspace />
 
       <section
         aria-label="Manager self-service"
-        className="grid gap-4"
+        className="grid gap-4 border-t border-border pt-5"
       >
         <RequestedPtoTable
           employeeId={routeUser.id}

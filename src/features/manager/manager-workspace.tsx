@@ -18,13 +18,13 @@ export function ManagerWorkspace() {
   return (
     <section
       aria-label="Manager review workspace"
-      className="grid gap-4 lg:h-[calc(100dvh-15rem)] lg:min-h-[32rem] lg:grid-cols-[minmax(0,3fr)_minmax(20rem,2fr)]"
+      className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(20rem,2fr)]"
     >
-      <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+      <div className="min-w-0">
         <AllEmployeeBalancesTable />
       </div>
 
-      <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+      <div className="min-w-0">
         <PendingRequestQueue
           selectedRequestId={selectedRequestId}
           onSelectRequest={setSelectedRequestId}
